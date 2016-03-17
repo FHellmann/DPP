@@ -2,6 +2,7 @@ package edu.hm.cs.vss;
 
 import edu.hm.cs.vss.impl.PhilosopherImpl;
 
+import java.util.Date;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
@@ -11,6 +12,13 @@ import java.util.stream.Stream;
  * Created by Fabio Hellmann on 17.03.2016.
  */
 public interface Philosopher extends Runnable {
+
+    /**
+     * Get the name of the philosopher.
+     *
+     * @return the name.
+     */
+    String getName();
 
     /**
      * Get the table where the philosopher can get something to eat.
@@ -80,6 +88,7 @@ public interface Philosopher extends Runnable {
     default void eat() {
         incrementMealCount();
         try {
+            say("Eating for " + getTimeToEat() + " ms");
             Thread.sleep(getTimeToEat());
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -91,6 +100,7 @@ public interface Philosopher extends Runnable {
      */
     default void mediate() {
         try {
+            say("Mediating for " + getTimeToMediate() + " ms");
             Thread.sleep(getTimeToMediate());
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -102,6 +112,7 @@ public interface Philosopher extends Runnable {
      */
     default void sleep() {
         try {
+            say("Sleeping for " + getTimeToSleep() + " ms");
             Thread.sleep(getTimeToSleep());
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -133,23 +144,29 @@ public interface Philosopher extends Runnable {
      * What the philosopher do in his life...
      */
     default void run() {
+        say("I'm alive!");
         final Table table = getTable();
 
         while (true) {
             // 3 Iterations by default... or more if the philosopher is very hungry
             IntStream.rangeClosed(0, getEatIterationCount() - 1)
+                    .peek(index -> say("Waiting for a free chair..."))
                     .mapToObj(index -> table.getFreeChair())
                     .filter(Optional::isPresent) // Looking for free seat
                     .map(Optional::get)
                     .peek(this::sitDown) // Seat found -> sit down
                     .peek(chair -> {
+                        say("I've found a nice seat!");
+
                         while (getForkCount() < 2) { // Waiting for 2 forks
                             Stream.of(chair, table.getNeighbourChair(chair)).parallel() // Iterate over both forks
-                                    .map(Chair::getFork)
+                                    .map(table::getForksAtChair)
                                     .filter(Optional::isPresent) // If fork is available
                                     .map(Optional::get)
                                     .forEach(this::pickUpFork); // Fork found -> Pick fork
                         }
+
+                        say("I got " + getForkCount() + " forks. YES!");
                     })
                     .peek(chair -> eat()) // Has a seat + 2 Forks -> eat
                     .peek(chair -> standUp())
@@ -160,11 +177,22 @@ public interface Philosopher extends Runnable {
         }
     }
 
+    default void say(final String message) {
+        System.out.println(String.format("%1$tH:%1$tM:%1$tS.%1$tL", new Date()) + " [" + getName() + "]: " + message);
+    }
+
     class Builder {
+        private static int count = 1;
+        private String name = "Philosopher-" + (count++);
         private Table table;
         private long timeSleep = TimeUnit.MILLISECONDS.convert(10, TimeUnit.MILLISECONDS);
         private long timeEat = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MILLISECONDS);
         private long timeMediate = TimeUnit.MILLISECONDS.convert(5, TimeUnit.MILLISECONDS);
+
+        public Builder name(final String name) {
+            this.name = name;
+            return this;
+        }
 
         public Builder with(final Table table) {
             this.table = table;
@@ -190,7 +218,7 @@ public interface Philosopher extends Runnable {
             if (table == null) {
                 throw new NullPointerException("Table can not be null. Use new Philosopher.Builder().with(Table).create()");
             }
-            return new PhilosopherImpl(table, timeSleep, timeEat, timeMediate);
+            return new PhilosopherImpl(name, table, timeSleep, timeEat, timeMediate);
         }
     }
 }

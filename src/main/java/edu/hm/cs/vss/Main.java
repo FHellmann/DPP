@@ -1,5 +1,7 @@
 package edu.hm.cs.vss;
 
+import edu.hm.cs.vss.impl.TableImpl;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
@@ -16,7 +18,7 @@ public class Main {
             chairCount = Integer.parseInt(args[1]);
         }
 
-        final Table table = null;
+        final Table table = new TableImpl();
         table.addChairs(chairCount);
 
         final ExecutorService executorService = Executors.newFixedThreadPool(philosopherCount);

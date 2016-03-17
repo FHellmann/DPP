@@ -8,6 +8,7 @@ import edu.hm.cs.vss.Table;
  * Created by Fabio Hellmann on 17.03.2016.
  */
 public class PhilosopherImpl implements Philosopher {
+    private final String name;
     private final Table table;
     private final long timeSleep;
     private final long timeEat;
@@ -15,11 +16,17 @@ public class PhilosopherImpl implements Philosopher {
     private int forkCount;
     private int mealCount;
 
-    public PhilosopherImpl(final Table table, final long timeSleep, final long timeEat, final long timeMediate) {
+    public PhilosopherImpl(final String name, final Table table, final long timeSleep, final long timeEat, final long timeMediate) {
+        this.name = name;
         this.table = table;
         this.timeSleep = timeSleep;
         this.timeEat = timeEat;
         this.timeMediate = timeMediate;
+    }
+
+    @Override
+    public String getName() {
+        return name;
     }
 
     @Override

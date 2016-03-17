@@ -12,7 +12,7 @@ public interface Table {
      *
      * @param chairCount to init.
      */
-    void addChairs(int chairCount);
+    void addChairs(final int chairCount);
 
     /**
      * Get the next free chair or null.
@@ -30,19 +30,27 @@ public interface Table {
     Chair getNeighbourChair(final Chair chair);
 
     /**
+     * Get the forks, which lay at the right and/or left side.
+     *
+     * @param chair to get the forks from.
+     * @return the forks.
+     */
+    Optional<Fork> getForksAtChair(final Chair chair);
+
+    /**
      * Set the chair blocked, so no other philosopher can sit down on this chair.
      *
      * @param chair       to block.
      * @param philosopher who sit on the chair.
      */
-    void blockChair(Chair chair, Philosopher philosopher);
+    void blockChair(final Chair chair, final Philosopher philosopher);
 
     /**
      * Set the chair free.
      *
      * @param philosopher who sit on the chair till now.
      */
-    void unblockChair(Philosopher philosopher);
+    void unblockChair(final Philosopher philosopher);
 
     /**
      * Set the fork blocked, so no other philosopher can pick up this fork.
@@ -50,14 +58,21 @@ public interface Table {
      * @param fork        to block.
      * @param philosopher who got this fork.
      */
-    void blockFork(Fork fork, Philosopher philosopher);
+    void blockFork(final Fork fork, final Philosopher philosopher);
 
     /**
      * Set the fork free.
      *
      * @param philosopher who got this fork till now.
      */
-    void unblockForks(Philosopher philosopher);
+    void unblockForks(final Philosopher philosopher);
+
+    /**
+     * Set the table "Master".
+     *
+     * @param tableManager to set as table "Master".
+     */
+    void setTableManager(final TableManager tableManager);
 
     /**
      * Get the table "Master".
