@@ -7,6 +7,4 @@ import java.util.Optional;
  */
 public interface Chair {
     Optional<Fork> getFork();
-
-    Optional<Philosoph> getPhilosoph();
 }
