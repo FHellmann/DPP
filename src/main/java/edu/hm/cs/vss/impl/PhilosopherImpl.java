@@ -1,8 +1,9 @@
 package edu.hm.cs.vss.impl;
 
-import edu.hm.cs.vss.Fork;
 import edu.hm.cs.vss.Philosopher;
 import edu.hm.cs.vss.Table;
+
+import java.util.function.Consumer;
 
 /**
  * Created by Fabio Hellmann on 17.03.2016.
@@ -13,15 +14,17 @@ public class PhilosopherImpl implements Philosopher {
     private final long timeSleep;
     private final long timeEat;
     private final long timeMediate;
-    private int forkCount;
+    private final Consumer<Philosopher> deadlock;
+    private volatile int forkCount;
     private int mealCount;
 
-    public PhilosopherImpl(final String name, final Table table, final long timeSleep, final long timeEat, final long timeMediate) {
+    public PhilosopherImpl(final String name, final Table table, final long timeSleep, final long timeEat, final long timeMediate, Consumer<Philosopher> deadlock) {
         this.name = name;
         this.table = table;
         this.timeSleep = timeSleep;
         this.timeEat = timeEat;
         this.timeMediate = timeMediate;
+        this.deadlock = deadlock;
     }
 
     @Override
@@ -35,20 +38,13 @@ public class PhilosopherImpl implements Philosopher {
     }
 
     @Override
-    public void pickUpFork(final Fork fork) {
-        table.blockFork(fork, this);
-        forkCount++;
-    }
-
-    @Override
-    public void releaseForks() {
-        table.unblockForks(this);
-        forkCount = 0;
-    }
-
-    @Override
     public int getForkCount() {
         return forkCount;
+    }
+
+    @Override
+    public void setForkCount(int forkCount) {
+        this.forkCount = forkCount;
     }
 
     @Override
@@ -79,5 +75,10 @@ public class PhilosopherImpl implements Philosopher {
     @Override
     public long getTimeToMediate() {
         return timeMediate;
+    }
+
+    @Override
+    public Consumer<Philosopher> onDeadlock() {
+        return deadlock;
     }
 }

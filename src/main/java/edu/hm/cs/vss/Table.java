@@ -15,11 +15,12 @@ public interface Table {
     void addChairs(final int chairCount);
 
     /**
-     * Get the next free chair or null.
+     * Get the next free chair or null. If a free chair was found, this chair will be automatically blocked.
      *
+     * @param philosopher who want a seat.
      * @return the next free chair or null.
      */
-    Optional<Chair> getFreeChair();
+    Optional<Chair> getFreeChair(final Philosopher philosopher);
 
     /**
      * Get the neighbour chair of another chair. (If there is only one chair, then the same chair will be returned)
@@ -30,12 +31,12 @@ public interface Table {
     Chair getNeighbourChair(final Chair chair);
 
     /**
-     * Get the forks, which lay at the right and/or left side.
+     * Get the fork, which lay at the right side.
      *
      * @param chair to get the forks from.
      * @return the forks.
      */
-    Optional<Fork> getForksAtChair(final Chair chair);
+    Optional<Fork> getForkAtChair(final Chair chair, final Philosopher philosopher);
 
     /**
      * Set the chair blocked, so no other philosopher can sit down on this chair.
