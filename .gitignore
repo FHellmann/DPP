@@ -5,6 +5,8 @@
 /out
 /build
 
+log.txt
+
 # Package Files #
 *.jar
 *.war

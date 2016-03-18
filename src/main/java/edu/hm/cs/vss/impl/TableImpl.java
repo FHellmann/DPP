@@ -2,10 +2,7 @@ package edu.hm.cs.vss.impl;
 
 import edu.hm.cs.vss.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
@@ -18,10 +15,10 @@ public class TableImpl implements Table {
     /**
      * If the table should be modified during runtime, then this list should be concurrent too.
      */
-    private final List<Chair> chairs = new ArrayList<>();
+    private final List<Chair> chairs = Collections.synchronizedList(new ArrayList<>());
     private final ConcurrentMap<Chair, Philosopher> blockedChairs = new ConcurrentHashMap<>();
     private final ConcurrentMap<Fork, Philosopher> blockedForks = new ConcurrentHashMap<>();
-    private Optional<TableManager> tableManager;
+    private Optional<TableManager> tableManager = Optional.empty();
 
     @Override
     public void addChairs(int chairCount) {

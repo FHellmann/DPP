@@ -3,6 +3,7 @@ package edu.hm.cs.vss.impl;
 import edu.hm.cs.vss.Philosopher;
 import edu.hm.cs.vss.Table;
 
+import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
@@ -16,15 +17,33 @@ public class PhilosopherImpl implements Philosopher {
     private final long timeMediate;
     private final Consumer<Philosopher> deadlock;
     private volatile int forkCount;
+    private int eatIterations;
     private int mealCount;
+    private long bannedTime = -1;
 
-    public PhilosopherImpl(final String name, final Table table, final long timeSleep, final long timeEat, final long timeMediate, Consumer<Philosopher> deadlock) {
+    public PhilosopherImpl(final String name,
+                           final Table table,
+                           final long timeSleep,
+                           final long timeEat,
+                           final long timeMediate,
+                           final Consumer<Philosopher> deadlock) {
+        this(name, table, timeSleep, timeEat, timeMediate, deadlock, DEFAULT_EAT_ITERATIONS);
+    }
+
+    public PhilosopherImpl(final String name,
+                           final Table table,
+                           final long timeSleep,
+                           final long timeEat,
+                           final long timeMediate,
+                           final Consumer<Philosopher> deadlock,
+                           final int eatIterations) {
         this.name = name;
         this.table = table;
         this.timeSleep = timeSleep;
         this.timeEat = timeEat;
         this.timeMediate = timeMediate;
         this.deadlock = deadlock;
+        this.eatIterations = eatIterations;
     }
 
     @Override
@@ -59,7 +78,20 @@ public class PhilosopherImpl implements Philosopher {
 
     @Override
     public int getEatIterationCount() {
-        return 3; // Default is 3... when the Philosopher is very hungry then this number should be increased
+        return eatIterations;
+    }
+
+    @Override
+    public void banned(long time) {
+        bannedTime = time;
+    }
+
+    @Override
+    public Optional<Long> getBannedTime() {
+        if (bannedTime > 0) {
+            return Optional.ofNullable(bannedTime);
+        }
+        return Optional.empty();
     }
 
     @Override
