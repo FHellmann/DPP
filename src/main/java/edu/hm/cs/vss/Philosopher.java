@@ -1,7 +1,12 @@
 package edu.hm.cs.vss;
 
 import edu.hm.cs.vss.impl.PhilosopherImpl;
+import edu.hm.cs.vss.log.ConsoleLogger;
+import edu.hm.cs.vss.log.Logger;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Date;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -14,6 +19,10 @@ import java.util.stream.Stream;
  */
 public interface Philosopher extends Runnable {
     int DEFAULT_EAT_ITERATIONS = 3;
+    long DEFAULT_TIME_TO_SLEEP = TimeUnit.MILLISECONDS.convert(10, TimeUnit.MILLISECONDS);
+    long DEFAULT_TIME_TO_MEDIATE = TimeUnit.MILLISECONDS.convert(5, TimeUnit.MILLISECONDS);
+    long DEFAULT_TIME_TO_EAT = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MILLISECONDS);
+    long DEFAULT_TIME_TO_BANN = TimeUnit.MILLISECONDS.convert(0, TimeUnit.MILLISECONDS);
 
     /**
      * Get the name of the philosopher.
@@ -21,6 +30,13 @@ public interface Philosopher extends Runnable {
      * @return the name.
      */
     String getName();
+
+    /**
+     * Get the logger of the philosopher.
+     *
+     * @return the logger.
+     */
+    Logger getLogger();
 
     /**
      * Get the table where the philosopher can get something to eat.
@@ -63,14 +79,12 @@ public interface Philosopher extends Runnable {
     /**
      * Refuse the philosopher a seat at the table.
      */
-    void banned(final long time);
+    void banned();
 
     /**
      * Allow the philosopher to sit down at the table.
      */
-    default void unbanned() {
-        banned(-1);
-    }
+    void unbanned();
 
     /**
      * Get the time the philosopher is no longer allowed to sit at the table.
@@ -107,16 +121,32 @@ public interface Philosopher extends Runnable {
      */
     Consumer<Philosopher> onDeadlock();
 
+    default Chair sitDown() {
+        return waitingForFreeChair();
+    }
+
+    default void standUp() {
+        getTable().unblockChair(this);
+        setForkCount(0);
+    }
+
+    default Fork pickFork(final Chair chair) {
+        return waitingForFork(chair);
+    }
+
+    default void releaseForks() {
+        getTable().unblockForks(this);
+    }
+
     default Chair waitingForFreeChair() {
         say("Waiting for a free chair...");
         Optional<Chair> chairOptional = Optional.empty();
         while (!chairOptional.isPresent()) {
             chairOptional = getTable().getFreeChair(this);
-            Optional<Long> bannedTime = getBannedTime();
-            if(bannedTime.isPresent()) {
+            getBannedTime().ifPresent(time -> {
                 say("The table master banned me! :(");
                 onThreadSleep(getBannedTime().get());
-            }
+            });
         }
         say("Sit down on " + chairOptional.get().toString());
         return chairOptional.get();
@@ -130,7 +160,7 @@ public interface Philosopher extends Runnable {
             forkOptional = getTable().getForkAtChair(chair, this);
 
             // Deadlock Detection!
-            if (count++ > 10 && getForkCount() < 2 && !forkOptional.isPresent()) {
+            if (count++ > 3 && getForkCount() < 2 && !forkOptional.isPresent()) {
                 onDeadlock().accept(this);
                 count = 0;
             }
@@ -171,16 +201,15 @@ public interface Philosopher extends Runnable {
     default void run() {
         say("I'm alive!");
 
-        while (true) {
+        while (!Thread.currentThread().isInterrupted()) {
             // 3 Iterations by default... or more if the philosopher is very hungry
             IntStream.rangeClosed(0, getEatIterationCount() - 1)
-                    .mapToObj(index -> waitingForFreeChair())
+                    .mapToObj(index -> sitDown())
                     .peek(chair -> Stream.of(chair, getTable().getNeighbourChair(chair))
-                            .parallel().forEach(this::waitingForFork))
+                            .parallel().forEach(this::pickFork))
                     .peek(chair -> eat()) // Has a seat + 2 Forks -> eat
                     .peek(chair -> say("Stand up from " + chair.toString()))
-                    .peek(chair -> getTable().unblockChair(this))
-                    .peek(chair -> setForkCount(0))
+                    .peek(chair -> standUp())
                     .forEach(chair -> mediate()); // Stand up and go to mediation / sleep
 
             // Sleep
@@ -189,12 +218,11 @@ public interface Philosopher extends Runnable {
     }
 
     default void say(final String message) {
-        System.out.println(String.format("%1$tH:%1$tM:%1$tS.%1$tL", new Date()) + " [" + getName() + "; Meals=" + getMealCount() + "]: " + message);
+        getLogger().log("[" + getName() + "; Meals=" + getMealCount() + "]: " + message);
     }
 
     default void onThreadSleep(final long time) {
         try {
-            Thread.yield();
             Thread.sleep(time);
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -204,19 +232,26 @@ public interface Philosopher extends Runnable {
     class Builder {
         private static int count = 1;
         private String name = "Philosopher-" + (count++);
+        private Logger logger = new ConsoleLogger();
         private Table table;
-        private long timeSleep = TimeUnit.MILLISECONDS.convert(10, TimeUnit.MILLISECONDS);
-        private long timeEat = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MILLISECONDS);
-        private long timeMediate = TimeUnit.MILLISECONDS.convert(5, TimeUnit.MILLISECONDS);
+        private long timeSleep = DEFAULT_TIME_TO_SLEEP;
+        private long timeEat = DEFAULT_TIME_TO_EAT;
+        private long timeMediate = DEFAULT_TIME_TO_MEDIATE;
         private Consumer<Philosopher> deadlockConsumer = philosopher -> philosopher.say("I'm in a deadlock!");
+        private boolean veryHungry;
 
         public Builder name(final String name) {
             this.name = name;
             return this;
         }
 
-        public Builder with(final Table table) {
+        public Builder setTable(final Table table) {
             this.table = table;
+            return this;
+        }
+
+        public Builder setLogger(final Logger logger) {
+            this.logger = logger;
             return this;
         }
 
@@ -235,6 +270,11 @@ public interface Philosopher extends Runnable {
             return this;
         }
 
+        public Builder setVeryHungry() {
+            this.veryHungry = true;
+            return this;
+        }
+
         public Builder setDeadlockFunction(final Consumer<Philosopher> deadlockConsumer) {
             this.deadlockConsumer = deadlockConsumer;
             return this;
@@ -242,9 +282,9 @@ public interface Philosopher extends Runnable {
 
         public Philosopher create() {
             if (table == null) {
-                throw new NullPointerException("Table can not be null. Use new Philosopher.Builder().with(Table).create()");
+                throw new NullPointerException("Table can not be null. Use new Philosopher.Builder().setTable(Table).create()");
             }
-            return new PhilosopherImpl(name, table, timeSleep, timeEat, timeMediate, deadlockConsumer);
+            return new PhilosopherImpl(name, logger, table, timeSleep, timeEat, timeMediate, veryHungry, deadlockConsumer);
         }
     }
 }

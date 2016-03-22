@@ -29,7 +29,7 @@ public class TableImpl implements Table {
 
     @Override
     public Optional<Chair> getFreeChair(final Philosopher philosopher) {
-        final Optional<Chair> chairOptional;
+        Optional<Chair> chairOptional = Optional.empty();
         if (!getTableManager().isPresent() || getTableManager().isPresent() && getTableManager().get().apply(philosopher)) {
             chairOptional = chairs.parallelStream()
                     .filter(chair -> !blockedChairs.containsKey(chair))
@@ -37,8 +37,6 @@ public class TableImpl implements Table {
             if (chairOptional.isPresent()) {
                 blockChair(chairOptional.get(), philosopher);
             }
-        } else {
-            chairOptional = Optional.empty();
         }
         return chairOptional;
     }
@@ -65,6 +63,7 @@ public class TableImpl implements Table {
     @Override
     public void blockChair(Chair chair, Philosopher philosopher) {
         blockedChairs.put(chair, philosopher);
+        getTableManager().ifPresent(tableMaster -> tableMaster.register(philosopher));
     }
 
     @Override
