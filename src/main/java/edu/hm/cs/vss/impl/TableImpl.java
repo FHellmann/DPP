@@ -30,7 +30,7 @@ public class TableImpl implements Table {
     @Override
     public Optional<Chair> getFreeChair(final Philosopher philosopher) {
         final Optional<Chair> chairOptional;
-        if (getTableManager().get().apply(philosopher)) {
+        if (!getTableManager().isPresent() || getTableManager().isPresent() && getTableManager().get().apply(philosopher)) {
             chairOptional = chairs.parallelStream()
                     .filter(chair -> !blockedChairs.containsKey(chair))
                     .findFirst();
