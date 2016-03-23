@@ -58,11 +58,6 @@ public class SimpleTable implements Table {
     }
 
     @Override
-    public boolean isForkFree(Fork fork) {
-        return !blockedForks.containsKey(fork);
-    }
-
-    @Override
     public Optional<Chair> blockChair(Chair chair, Philosopher philosopher) {
         if (blockedChairs.putIfAbsent(chair, philosopher) == null) {
             getLogger().log("Blocked " + chair.toString() + " by " + philosopher.getName());

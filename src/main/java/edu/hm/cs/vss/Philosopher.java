@@ -142,14 +142,12 @@ public interface Philosopher extends Runnable {
         int deadlockDetectionCount = 0;
         int forkCount = 0;
         do {
-            if (getTable().isForkFree(fork)) {
-                getTable().blockFork(fork, this);
+            if (getTable().blockFork(fork, this).isPresent()) {
                 say("Picked up fork (" + fork.toString() + ")");
                 forkCount++;
             }
 
-            if (getTable().isForkFree(neighbourFork)) {
-                getTable().blockFork(neighbourFork, this);
+            if (getTable().blockFork(neighbourFork, this).isPresent()) {
                 say("Picked up fork (" + neighbourFork.toString() + ")");
                 forkCount++;
             }
