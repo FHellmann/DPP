@@ -5,6 +5,7 @@ import edu.hm.cs.vss.Fork;
 import edu.hm.cs.vss.Philosopher;
 import edu.hm.cs.vss.Table;
 import edu.hm.cs.vss.impl.ChairImpl;
+import edu.hm.cs.vss.log.Logger;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,13 +23,14 @@ public class SimpleTable implements Table {
     private final List<Chair> chairs = Collections.synchronizedList(new ArrayList<>());
     private final ConcurrentMap<Chair, Philosopher> blockedChairs = new ConcurrentHashMap<>();
     private final ConcurrentMap<Fork, Philosopher> blockedForks = new ConcurrentHashMap<>();
+    private final Logger logger;
 
-    public Map<Chair, Philosopher> getChairsByPhilosopher() {
-        return blockedChairs;
+    public SimpleTable(final Logger logger) {
+        this.logger = logger;
     }
 
-    public Map<Fork, Philosopher> getForksByPhilosopher() {
-        return blockedForks;
+    public Logger getLogger() {
+        return logger;
     }
 
     @Override
@@ -40,11 +42,10 @@ public class SimpleTable implements Table {
 
     @Override
     public Optional<Chair> getFreeChair(final Philosopher philosopher) {
-        final Optional<Chair> chairOptional = chairs.parallelStream()
+        return chairs.parallelStream()
                 .filter(chair -> !blockedChairs.containsKey(chair))
-                .findFirst();
-        chairOptional.ifPresent(chair -> blockChair(chair, philosopher));
-        return chairOptional;
+                .findFirst()
+                .flatMap(chair -> blockChair(chair, philosopher));
     }
 
     @Override
@@ -62,37 +63,46 @@ public class SimpleTable implements Table {
     }
 
     @Override
-    public void blockChair(Chair chair, Philosopher philosopher) {
-        blockedChairs.put(chair, philosopher);
+    public Optional<Chair> blockChair(Chair chair, Philosopher philosopher) {
+        if (blockedChairs.putIfAbsent(chair, philosopher) == null) {
+            getLogger().log("Blocked " + chair.toString() + " by " + philosopher.getName());
+            return Optional.of(chair);
+        }
+        return Optional.empty();
     }
 
     @Override
     public void unblockChair(Philosopher philosopher) {
         unblockForks(philosopher);
-        if (blockedChairs.containsValue(philosopher)) {
-            final Optional<Map.Entry<Chair, Philosopher>> chairPhilosopherEntry = blockedChairs.entrySet().stream()
-                    .filter(entry -> entry.getValue().equals(philosopher))
-                    .findFirst();
-            if (chairPhilosopherEntry.isPresent()) {
-                blockedChairs.remove(chairPhilosopherEntry.get().getKey());
-            }
-        }
+        blockedChairs.entrySet().stream()
+                .filter(entry -> entry.getValue().equals(philosopher))
+                .findFirst()
+                .ifPresent(entry -> {
+                    getLogger().log("Unblocked " + entry.getKey().toString() + " by " + philosopher.getName());
+                    philosopher.say("Stand up from seat (" + entry.getKey().toString() + ")");
+                    blockedChairs.remove(entry.getKey());
+                });
     }
 
     @Override
-    public void blockFork(Fork fork, Philosopher philosopher) {
-        blockedForks.put(fork, philosopher);
+    public Optional<Fork> blockFork(Fork fork, Philosopher philosopher) {
+        if (blockedForks.putIfAbsent(fork, philosopher) == null) {
+            getLogger().log("Blocked " + fork.toString() + " by " + philosopher.getName());
+            return Optional.of(fork);
+        }
+        return Optional.empty();
     }
 
     @Override
     public void unblockForks(Philosopher philosopher) {
-        if (blockedForks.containsValue(philosopher)) {
-            final Optional<Map.Entry<Fork, Philosopher>> forkPhilosopherEntry = blockedForks.entrySet().stream()
-                    .filter(entry -> entry.getValue().equals(philosopher))
-                    .findFirst();
-            if (forkPhilosopherEntry.isPresent()) {
-                blockedForks.remove(forkPhilosopherEntry.get().getKey());
-            }
-        }
+        final List<Fork> forkList = blockedForks.entrySet().stream()
+                .filter(entry -> entry.getValue().equals(philosopher))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+        forkList.forEach(fork -> {
+                    getLogger().log("Unblocked " + fork.toString() + " by " + philosopher.getName());
+                    philosopher.say("Release my fork (" + fork.toString() + ")");
+                    blockedForks.remove(fork);
+                });
     }
 }

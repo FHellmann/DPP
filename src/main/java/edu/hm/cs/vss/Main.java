@@ -1,15 +1,16 @@
 package edu.hm.cs.vss;
 
-import edu.hm.cs.vss.table.SimpleTable;
+import edu.hm.cs.vss.log.EmptyLogger;
 import edu.hm.cs.vss.log.FileLogger;
 import edu.hm.cs.vss.log.merger.LogMerger;
+import edu.hm.cs.vss.table.SimpleTable;
+import edu.hm.cs.vss.table.TableWithMaster;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -19,24 +20,28 @@ import java.util.stream.IntStream;
  */
 public class Main {
     public static void main(String[] args) throws IOException {
-        long runtime = TimeUnit.MILLISECONDS.convert(10, TimeUnit.SECONDS);
-        int philosopherCount = 4;
-        int chairCount = 4;
-        final boolean veryHungry;
-        if (args.length == 3) {
+        final long runtime; // Duration of the program activity
+        final int philosopherCount; // Amount of philosophers
+        final int chairCount; // Amount of chairs
+        final boolean veryHungry; // Is the first philosopher vergy hungry?
+        if (args.length == 4) {
+            // Manual user input
             int index = 0;
             runtime = TimeUnit.MILLISECONDS.convert(Long.parseLong(args[index++]), TimeUnit.SECONDS);
             philosopherCount = Integer.parseInt(args[index++]);
             chairCount = Integer.parseInt(args[index++]);
             veryHungry = args[index] != null && args[index].length() > 0;
         } else {
+            // Defaults
+            runtime = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MINUTES);
+            philosopherCount = 4;
+            chairCount = 4;
             veryHungry = false;
         }
 
-        final Table table = new SimpleTable();
+        final Table table = new TableWithMaster(new EmptyLogger());
         table.addChairs(chairCount);
 
-        final int cpuCores = Runtime.getRuntime().availableProcessors() * 2; // With hyper-threading is 2 * cpu core count
         final ExecutorService executorService = Executors.newCachedThreadPool(r -> {
             Thread t = new Thread(r);
             t.setDaemon(true);
@@ -52,7 +57,7 @@ public class Main {
                             .name(name)
                             .setDeadlockFunction(philosopher -> {
                                 philosopher.releaseForks();
-                                philosopher.onThreadSleep(1);
+                                philosopher.onThreadSleep((long) (Math.random() * philosopherCount * 100));
                             });
                     if (index == 1 && veryHungry) {
                         builder.setVeryHungry();

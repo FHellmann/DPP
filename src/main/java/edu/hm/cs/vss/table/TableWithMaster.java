@@ -2,6 +2,7 @@ package edu.hm.cs.vss.table;
 
 import edu.hm.cs.vss.Chair;
 import edu.hm.cs.vss.Philosopher;
+import edu.hm.cs.vss.log.Logger;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,6 +18,10 @@ public class TableWithMaster extends SimpleTable {
      * If the table should be modified during runtime, then this list should be concurrent too.
      */
     private final List<Philosopher> philosopherList = Collections.synchronizedList(new ArrayList<>());
+
+    public TableWithMaster(Logger logger) {
+        super(logger);
+    }
 
     @Override
     public Optional<Chair> getFreeChair(Philosopher philosopher) {
