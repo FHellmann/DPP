@@ -2,8 +2,8 @@ package edu.hm.cs.vss;
 
 import edu.hm.cs.vss.log.EmptyLogger;
 import edu.hm.cs.vss.log.FileLogger;
+import edu.hm.cs.vss.log.Logger;
 import edu.hm.cs.vss.log.merger.LogMerger;
-import edu.hm.cs.vss.table.SimpleTable;
 import edu.hm.cs.vss.table.TableWithMaster;
 
 import java.io.File;
@@ -34,9 +34,9 @@ public class Main {
         } else {
             // Defaults
             runtime = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MINUTES);
-            philosopherCount = 4;
-            chairCount = 4;
-            veryHungry = true;
+            philosopherCount = 5;
+            chairCount = 5;
+            veryHungry = false;
         }
 
         final Table table = new TableWithMaster(new EmptyLogger());
@@ -57,7 +57,11 @@ public class Main {
                             .name(name)
                             .setDeadlockFunction(philosopher -> {
                                 philosopher.releaseForks();
-                                philosopher.onThreadSleep((long) (Math.random() * philosopherCount * 100));
+                                try {
+                                    philosopher.onThreadSleep((long) (Math.random() * philosopherCount * 100));
+                                } catch (InterruptedException e) {
+                                    throw new RuntimeException(e);
+                                }
                             });
                     if (index == 1 && veryHungry) {
                         builder.setVeryHungry();
@@ -79,14 +83,25 @@ public class Main {
         System.out.println("Exit program! [Runtime = " + runtime + "]");
 
         // Waiting for all threads to finish
-        executorService.shutdown();
+        executorService.shutdownNow();
         try {
-            executorService.awaitTermination(10, TimeUnit.SECONDS);
+            executorService.awaitTermination(1, TimeUnit.MINUTES);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
         System.out.println("Threads terminated");
+
+        Logger logger = new FileLogger("statistic");
+        logger.log("############# Statistic #############");
+        logger.log("# Hardware");
+        logger.log("CPU-Cores (available to the JVM) = " + Runtime.getRuntime().availableProcessors());
+        logger.log("Memory (available to the JVM) = " + Runtime.getRuntime().maxMemory());
+        logger.log("# Philosophers");
+        philosopherList.stream()
+                .map(philosopher -> philosopher.getName() + ": " + philosopher.getMealCount())
+                .forEach(logger::log);
+        logger.log("############### END #################");
 
         // Merge all log files
         final File file = new File(".");

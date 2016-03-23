@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Created by Fabio on 22.03.2016.
@@ -17,7 +18,7 @@ public class TableWithMaster extends SimpleTable {
     /**
      * If the table should be modified during runtime, then this list should be concurrent too.
      */
-    private final List<Philosopher> philosopherList = Collections.synchronizedList(new ArrayList<>());
+    private final List<Philosopher> philosopherList = new CopyOnWriteArrayList<>();
 
     public TableWithMaster(Logger logger) {
         super(logger);

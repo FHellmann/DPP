@@ -18,7 +18,7 @@ public interface Philosopher extends Runnable {
     long DEFAULT_TIME_TO_SLEEP = TimeUnit.MILLISECONDS.convert(10, TimeUnit.MILLISECONDS);
     long DEFAULT_TIME_TO_MEDIATE = TimeUnit.MILLISECONDS.convert(5, TimeUnit.MILLISECONDS);
     long DEFAULT_TIME_TO_EAT = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MILLISECONDS);
-    long DEFAULT_TIME_TO_BANN = TimeUnit.MILLISECONDS.convert(0, TimeUnit.MILLISECONDS);
+    long DEFAULT_TIME_TO_BANN = TimeUnit.MILLISECONDS.convert(5, TimeUnit.MILLISECONDS);
 
     /**
      * Get the name of the philosopher.
@@ -114,7 +114,11 @@ public interface Philosopher extends Runnable {
 
             getBannedTime().ifPresent(time -> {
                 say("I'm banned for " + time + " ms :'(");
-                onThreadSleep(time);
+                try {
+                    onThreadSleep(time);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             });
         } while (!chairOptional.isPresent());
 
@@ -167,7 +171,7 @@ public interface Philosopher extends Runnable {
     /**
      * The philosopher is eating.
      */
-    default void eat() {
+    default void eat() throws InterruptedException {
         incrementMealCount();
         say("Eating for " + getTimeToEat() + " ms");
         onThreadSleep(getTimeToEat());
@@ -176,7 +180,7 @@ public interface Philosopher extends Runnable {
     /**
      * The philosopher is mediating.
      */
-    default void mediate() {
+    default void mediate() throws InterruptedException {
         say("Mediating for " + getTimeToMediate() + " ms");
         onThreadSleep(getTimeToMediate());
     }
@@ -184,7 +188,7 @@ public interface Philosopher extends Runnable {
     /**
      * The philosopher is sleeping.
      */
-    default void sleep() {
+    default void sleep() throws InterruptedException {
         say("Sleeping for " + getTimeToSleep() + " ms");
         onThreadSleep(getTimeToSleep());
     }
@@ -195,17 +199,32 @@ public interface Philosopher extends Runnable {
     default void run() {
         say("I'm alive!");
 
-        while (!Thread.currentThread().isInterrupted()) {
-            // 3 Iterations by default... or more if the philosopher is very hungry
-            IntStream.rangeClosed(0, getEatIterationCount() - 1)
-                    .mapToObj(index -> waitForSitDown()) // Sit down on a free chair -> waiting for a free
-                    .peek(this::waitForForks) // Grab two forks -> waiting for two free
-                    .peek(tmp -> eat()) // Eat the next portion
-                    .peek(tmp -> standUp()) // Stand up from chair
-                    .forEach(tmp -> mediate()); // Go to mediate
+        try {
+            while (!Thread.currentThread().isInterrupted()) {
+                // 3 Iterations by default... or more if the philosopher is very hungry
+                IntStream.rangeClosed(0, getEatIterationCount() - 1)
+                        .mapToObj(index -> waitForSitDown()) // Sit down on a free chair -> waiting for a free
+                        .peek(this::waitForForks) // Grab two forks -> waiting for two free
+                        .peek(tmp -> {
+                            try {
+                                eat();
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }) // Eat the next portion
+                        .peek(tmp -> standUp()) // Stand up from chair
+                        .forEach(tmp -> {
+                            try {
+                                mediate();
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }); // Go to mediate
 
-            // Sleep
-            sleep();
+                // Sleep
+                sleep();
+            }
+        } catch (Exception e) {
         }
     }
 
@@ -213,14 +232,8 @@ public interface Philosopher extends Runnable {
         getLogger().log("[" + getName() + "; Meals=" + getMealCount() + "]: " + message);
     }
 
-    default void onThreadSleep(final long time) {
-        try {
-            if (!Thread.currentThread().isInterrupted()) {
-                Thread.sleep(time);
-            }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+    default void onThreadSleep(final long time) throws InterruptedException {
+        Thread.sleep(time);
     }
 
     class Builder {
