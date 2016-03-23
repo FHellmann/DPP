@@ -43,7 +43,7 @@ public interface Table {
      * @param chair       to block.
      * @param philosopher who sit on the chair.
      */
-    void blockChair(final Chair chair, final Philosopher philosopher);
+    Optional<Chair> blockChair(final Chair chair, final Philosopher philosopher);
 
     /**
      * Set the chair free.
@@ -58,7 +58,7 @@ public interface Table {
      * @param fork        to block.
      * @param philosopher who got this fork.
      */
-    void blockFork(final Fork fork, final Philosopher philosopher);
+    Optional<Fork> blockFork(final Fork fork, final Philosopher philosopher);
 
     /**
      * Set the fork free.

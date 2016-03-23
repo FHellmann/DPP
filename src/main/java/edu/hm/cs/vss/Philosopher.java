@@ -14,7 +14,7 @@ import java.util.stream.IntStream;
  */
 public interface Philosopher extends Runnable {
     int DEFAULT_EAT_ITERATIONS = 3;
-    int MAX_DEADLOCK_COUNT = 10;
+    int MAX_DEADLOCK_COUNT = 3;
     long DEFAULT_TIME_TO_SLEEP = TimeUnit.MILLISECONDS.convert(10, TimeUnit.MILLISECONDS);
     long DEFAULT_TIME_TO_MEDIATE = TimeUnit.MILLISECONDS.convert(5, TimeUnit.MILLISECONDS);
     long DEFAULT_TIME_TO_EAT = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MILLISECONDS);
@@ -106,10 +106,16 @@ public interface Philosopher extends Runnable {
     Consumer<Philosopher> onDeadlock();
 
     default Chair waitForSitDown() {
+        say("Waiting for a nice seat...");
+
         Optional<Chair> chairOptional;
         do {
             chairOptional = getTable().getFreeChair(this);
+
+            getBannedTime().ifPresent(this::onThreadSleep);
         } while (!chairOptional.isPresent());
+
+        say("Found a nice seat (" + chairOptional.get().toString() + ")");
 
         return chairOptional.get();
     }
@@ -119,6 +125,8 @@ public interface Philosopher extends Runnable {
     }
 
     default void waitForForks(final Chair chair) {
+        say("Waiting for 2 forks...");
+
         final Fork fork = chair.getFork();
 
         final Chair neighbourChair = getTable().getNeighbourChair(chair);
@@ -129,19 +137,24 @@ public interface Philosopher extends Runnable {
         do {
             if (getTable().isForkFree(fork)) {
                 getTable().blockFork(fork, this);
+                say("Picked up fork (" + fork.toString() + ")");
                 forkCount++;
             }
 
             if (getTable().isForkFree(neighbourFork)) {
                 getTable().blockFork(neighbourFork, this);
+                say("Picked up fork (" + fork.toString() + ")");
                 forkCount++;
             }
 
             if (deadlockDetectionCount++ > MAX_DEADLOCK_COUNT) {
                 onDeadlock().accept(this);
                 deadlockDetectionCount = 0;
+                forkCount = 0;
             }
-        } while (forkCount != 2);
+        } while (forkCount < 2);
+
+        say("Found 2 forks! :D");
     }
 
     default void releaseForks() {
@@ -182,14 +195,9 @@ public interface Philosopher extends Runnable {
         while (!Thread.currentThread().isInterrupted()) {
             // 3 Iterations by default... or more if the philosopher is very hungry
             IntStream.rangeClosed(0, getEatIterationCount() - 1)
-                    .peek(tmp -> say("Waiting for a nice seat..."))
                     .mapToObj(index -> waitForSitDown()) // Sit down on a free chair -> waiting for a free
-                    .peek(tmp -> say("Found a nice seat (" + tmp.toString() + ")"))
-                    .peek(tmp -> say("Waiting for 2 forks..."))
                     .peek(this::waitForForks) // Grab two forks -> waiting for two free
-                    .peek(tmp -> say("Found 2 forks! :D"))
                     .peek(tmp -> eat()) // Eat the next portion
-                    .peek(tmp -> say("Stand up from seat (" + tmp.toString() + ")"))
                     .peek(tmp -> standUp()) // Stand up from chair
                     .forEach(tmp -> mediate()); // Go to mediate
 
