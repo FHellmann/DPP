@@ -5,7 +5,7 @@
 /out
 /build
 
-*.txt
+log-*.txt
 
 # Package Files #
 *.jar
