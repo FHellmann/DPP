@@ -112,7 +112,10 @@ public interface Philosopher extends Runnable {
         do {
             chairOptional = getTable().getFreeChair(this);
 
-            getBannedTime().ifPresent(this::onThreadSleep);
+            getBannedTime().ifPresent(time -> {
+                say("I'm banned for " + time + " ms :'(");
+                onThreadSleep(time);
+            });
         } while (!chairOptional.isPresent());
 
         say("Found a nice seat (" + chairOptional.get().toString() + ")");
@@ -143,7 +146,7 @@ public interface Philosopher extends Runnable {
 
             if (getTable().isForkFree(neighbourFork)) {
                 getTable().blockFork(neighbourFork, this);
-                say("Picked up fork (" + fork.toString() + ")");
+                say("Picked up fork (" + neighbourFork.toString() + ")");
                 forkCount++;
             }
 

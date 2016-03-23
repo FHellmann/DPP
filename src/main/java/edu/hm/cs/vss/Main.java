@@ -36,7 +36,7 @@ public class Main {
             runtime = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MINUTES);
             philosopherCount = 4;
             chairCount = 4;
-            veryHungry = false;
+            veryHungry = true;
         }
 
         final Table table = new TableWithMaster(new EmptyLogger());
