@@ -1,19 +1,24 @@
 package edu.hm.cs.vss;
 
 import edu.hm.cs.vss.impl.PhilosopherImpl;
+import edu.hm.cs.vss.log.ConsoleLogger;
+import edu.hm.cs.vss.log.Logger;
 
-import java.util.Date;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 /**
  * Created by Fabio Hellmann on 17.03.2016.
  */
 public interface Philosopher extends Runnable {
     int DEFAULT_EAT_ITERATIONS = 3;
+    int MAX_DEADLOCK_COUNT = 3;
+    long DEFAULT_TIME_TO_SLEEP = TimeUnit.MILLISECONDS.convert(10, TimeUnit.MILLISECONDS);
+    long DEFAULT_TIME_TO_MEDIATE = TimeUnit.MILLISECONDS.convert(5, TimeUnit.MILLISECONDS);
+    long DEFAULT_TIME_TO_EAT = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MILLISECONDS);
+    long DEFAULT_TIME_TO_BANN = TimeUnit.MILLISECONDS.convert(0, TimeUnit.MILLISECONDS);
 
     /**
      * Get the name of the philosopher.
@@ -23,23 +28,18 @@ public interface Philosopher extends Runnable {
     String getName();
 
     /**
+     * Get the logger of the philosopher.
+     *
+     * @return the logger.
+     */
+    Logger getLogger();
+
+    /**
      * Get the table where the philosopher can get something to eat.
      *
      * @return the table.
      */
     Table getTable();
-
-    /**
-     * Get the amount of forks the philosopher hold in his hands.
-     *
-     * @return the amount of forks.
-     */
-    int getForkCount();
-
-    /**
-     * Set the amount of forks the philosopher hold in his hands now.
-     */
-    void setForkCount(final int count);
 
     /**
      * Get the amount of eaten meals.
@@ -63,14 +63,12 @@ public interface Philosopher extends Runnable {
     /**
      * Refuse the philosopher a seat at the table.
      */
-    void banned(final long time);
+    void banned();
 
     /**
      * Allow the philosopher to sit down at the table.
      */
-    default void unbanned() {
-        banned(-1);
-    }
+    void unbanned();
 
     /**
      * Get the time the philosopher is no longer allowed to sit at the table.
@@ -107,37 +105,63 @@ public interface Philosopher extends Runnable {
      */
     Consumer<Philosopher> onDeadlock();
 
-    default Chair waitingForFreeChair() {
-        say("Waiting for a free chair...");
-        Optional<Chair> chairOptional = Optional.empty();
-        while (!chairOptional.isPresent()) {
+    default Chair waitForSitDown() {
+        say("Waiting for a nice seat...");
+
+        Optional<Chair> chairOptional;
+        do {
             chairOptional = getTable().getFreeChair(this);
-            Optional<Long> bannedTime = getBannedTime();
-            if(bannedTime.isPresent()) {
-                say("The table master banned me! :(");
-                onThreadSleep(getBannedTime().get());
-            }
-        }
-        say("Sit down on " + chairOptional.get().toString());
+
+            getBannedTime().ifPresent(time -> {
+                say("I'm banned for " + time + " ms :'(");
+                onThreadSleep(time);
+            });
+        } while (!chairOptional.isPresent());
+
+        say("Found a nice seat (" + chairOptional.get().toString() + ")");
+
         return chairOptional.get();
     }
 
-    default Fork waitingForFork(final Chair chair) {
-        say("Waiting for my " + (getForkCount() + 1) + " fork from " + chair.toString() + " to eat...");
-        Optional<Fork> forkOptional = Optional.empty();
-        int count = 0;
-        while (!forkOptional.isPresent()) {
-            forkOptional = getTable().getForkAtChair(chair, this);
+    default void standUp() {
+        getTable().unblockChair(this);
+    }
 
-            // Deadlock Detection!
-            if (count++ > 10 && getForkCount() < 2 && !forkOptional.isPresent()) {
-                onDeadlock().accept(this);
-                count = 0;
+    default void waitForForks(final Chair chair) {
+        say("Waiting for 2 forks...");
+
+        final Fork fork = chair.getFork();
+
+        final Chair neighbourChair = getTable().getNeighbourChair(chair);
+        final Fork neighbourFork = neighbourChair.getFork();
+
+        int deadlockDetectionCount = 0;
+        int forkCount = 0;
+        do {
+            if (getTable().isForkFree(fork)) {
+                getTable().blockFork(fork, this);
+                say("Picked up fork (" + fork.toString() + ")");
+                forkCount++;
             }
-        }
-        say("I've got my " + (getForkCount() + 1) + " fork from " + chair.toString());
-        setForkCount(getForkCount() + 1);
-        return forkOptional.get();
+
+            if (getTable().isForkFree(neighbourFork)) {
+                getTable().blockFork(neighbourFork, this);
+                say("Picked up fork (" + neighbourFork.toString() + ")");
+                forkCount++;
+            }
+
+            if (deadlockDetectionCount++ > MAX_DEADLOCK_COUNT) {
+                onDeadlock().accept(this);
+                deadlockDetectionCount = 0;
+                forkCount = 0;
+            }
+        } while (forkCount < 2);
+
+        say("Found 2 forks! :D");
+    }
+
+    default void releaseForks() {
+        getTable().unblockForks(this);
     }
 
     /**
@@ -171,17 +195,14 @@ public interface Philosopher extends Runnable {
     default void run() {
         say("I'm alive!");
 
-        while (true) {
+        while (!Thread.currentThread().isInterrupted()) {
             // 3 Iterations by default... or more if the philosopher is very hungry
             IntStream.rangeClosed(0, getEatIterationCount() - 1)
-                    .mapToObj(index -> waitingForFreeChair())
-                    .peek(chair -> Stream.of(chair, getTable().getNeighbourChair(chair))
-                            .parallel().forEach(this::waitingForFork))
-                    .peek(chair -> eat()) // Has a seat + 2 Forks -> eat
-                    .peek(chair -> say("Stand up from " + chair.toString()))
-                    .peek(chair -> getTable().unblockChair(this))
-                    .peek(chair -> setForkCount(0))
-                    .forEach(chair -> mediate()); // Stand up and go to mediation / sleep
+                    .mapToObj(index -> waitForSitDown()) // Sit down on a free chair -> waiting for a free
+                    .peek(this::waitForForks) // Grab two forks -> waiting for two free
+                    .peek(tmp -> eat()) // Eat the next portion
+                    .peek(tmp -> standUp()) // Stand up from chair
+                    .forEach(tmp -> mediate()); // Go to mediate
 
             // Sleep
             sleep();
@@ -189,13 +210,14 @@ public interface Philosopher extends Runnable {
     }
 
     default void say(final String message) {
-        System.out.println(String.format("%1$tH:%1$tM:%1$tS.%1$tL", new Date()) + " [" + getName() + "; Meals=" + getMealCount() + "]: " + message);
+        getLogger().log("[" + getName() + "; Meals=" + getMealCount() + "]: " + message);
     }
 
     default void onThreadSleep(final long time) {
         try {
-            Thread.yield();
-            Thread.sleep(time);
+            if (!Thread.currentThread().isInterrupted()) {
+                Thread.sleep(time);
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -204,19 +226,26 @@ public interface Philosopher extends Runnable {
     class Builder {
         private static int count = 1;
         private String name = "Philosopher-" + (count++);
+        private Logger logger = new ConsoleLogger();
         private Table table;
-        private long timeSleep = TimeUnit.MILLISECONDS.convert(10, TimeUnit.MILLISECONDS);
-        private long timeEat = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MILLISECONDS);
-        private long timeMediate = TimeUnit.MILLISECONDS.convert(5, TimeUnit.MILLISECONDS);
+        private long timeSleep = DEFAULT_TIME_TO_SLEEP;
+        private long timeEat = DEFAULT_TIME_TO_EAT;
+        private long timeMediate = DEFAULT_TIME_TO_MEDIATE;
         private Consumer<Philosopher> deadlockConsumer = philosopher -> philosopher.say("I'm in a deadlock!");
+        private boolean veryHungry;
 
         public Builder name(final String name) {
             this.name = name;
             return this;
         }
 
-        public Builder with(final Table table) {
+        public Builder setTable(final Table table) {
             this.table = table;
+            return this;
+        }
+
+        public Builder setLogger(final Logger logger) {
+            this.logger = logger;
             return this;
         }
 
@@ -235,6 +264,11 @@ public interface Philosopher extends Runnable {
             return this;
         }
 
+        public Builder setVeryHungry() {
+            this.veryHungry = true;
+            return this;
+        }
+
         public Builder setDeadlockFunction(final Consumer<Philosopher> deadlockConsumer) {
             this.deadlockConsumer = deadlockConsumer;
             return this;
@@ -242,9 +276,9 @@ public interface Philosopher extends Runnable {
 
         public Philosopher create() {
             if (table == null) {
-                throw new NullPointerException("Table can not be null. Use new Philosopher.Builder().with(Table).create()");
+                throw new NullPointerException("Table can not be null. Use new Philosopher.Builder().setTable(Table).create()");
             }
-            return new PhilosopherImpl(name, table, timeSleep, timeEat, timeMediate, deadlockConsumer);
+            return new PhilosopherImpl(name, logger, table, timeSleep, timeEat, timeMediate, veryHungry, deadlockConsumer);
         }
     }
 }

@@ -2,6 +2,7 @@ package edu.hm.cs.vss.impl;
 
 import edu.hm.cs.vss.Philosopher;
 import edu.hm.cs.vss.Table;
+import edu.hm.cs.vss.log.Logger;
 
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -11,26 +12,29 @@ import java.util.function.Consumer;
  */
 public class PhilosopherImpl implements Philosopher {
     private final String name;
+    private Logger logger;
     private final Table table;
     private final long timeSleep;
     private final long timeEat;
     private final long timeMediate;
     private final Consumer<Philosopher> deadlock;
-    private volatile int forkCount;
     private int eatIterations;
     private int mealCount;
     private long bannedTime = -1;
 
     public PhilosopherImpl(final String name,
+                           final Logger logger,
                            final Table table,
                            final long timeSleep,
                            final long timeEat,
                            final long timeMediate,
+                           final boolean veryHungry,
                            final Consumer<Philosopher> deadlock) {
-        this(name, table, timeSleep, timeEat, timeMediate, deadlock, DEFAULT_EAT_ITERATIONS);
+        this(name, logger, table, timeSleep, timeEat, veryHungry ? timeMediate / 2 : timeMediate, deadlock, veryHungry ? DEFAULT_EAT_ITERATIONS * 2 : DEFAULT_EAT_ITERATIONS);
     }
 
     public PhilosopherImpl(final String name,
+                           final Logger logger,
                            final Table table,
                            final long timeSleep,
                            final long timeEat,
@@ -38,6 +42,7 @@ public class PhilosopherImpl implements Philosopher {
                            final Consumer<Philosopher> deadlock,
                            final int eatIterations) {
         this.name = name;
+        this.logger = logger;
         this.table = table;
         this.timeSleep = timeSleep;
         this.timeEat = timeEat;
@@ -52,18 +57,13 @@ public class PhilosopherImpl implements Philosopher {
     }
 
     @Override
+    public Logger getLogger() {
+        return logger;
+    }
+
+    @Override
     public Table getTable() {
         return table;
-    }
-
-    @Override
-    public int getForkCount() {
-        return forkCount;
-    }
-
-    @Override
-    public void setForkCount(int forkCount) {
-        this.forkCount = forkCount;
     }
 
     @Override
@@ -82,13 +82,18 @@ public class PhilosopherImpl implements Philosopher {
     }
 
     @Override
-    public void banned(long time) {
-        bannedTime = time;
+    public void banned() {
+        bannedTime = DEFAULT_TIME_TO_BANN;
+    }
+
+    @Override
+    public void unbanned() {
+        bannedTime = -1;
     }
 
     @Override
     public Optional<Long> getBannedTime() {
-        if (bannedTime > 0) {
+        if (bannedTime >= 0) {
             return Optional.ofNullable(bannedTime);
         }
         return Optional.empty();
