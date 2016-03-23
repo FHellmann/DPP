@@ -18,7 +18,7 @@ public class FileLogger implements Logger {
     @Override
     public void log(String text) {
         try {
-            final PrintWriter writer = new PrintWriter(new FileWriter("log-" + fileName + ".txt", true), true);
+            final PrintWriter writer = new PrintWriter(new FileWriter(fileName, true), true);
             writer.write(String.format(TIMESTAMP_FORMAT, new Date()) + text);
             writer.write("\n");
             writer.flush();

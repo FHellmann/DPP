@@ -1,6 +1,10 @@
-package edu.hm.cs.vss.impl;
+package edu.hm.cs.vss.table;
 
-import edu.hm.cs.vss.*;
+import edu.hm.cs.vss.Chair;
+import edu.hm.cs.vss.Fork;
+import edu.hm.cs.vss.Philosopher;
+import edu.hm.cs.vss.Table;
+import edu.hm.cs.vss.impl.ChairImpl;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -11,14 +15,21 @@ import java.util.stream.IntStream;
 /**
  * Created by Fabio Hellmann on 17.03.2016.
  */
-public class TableImpl implements Table {
+public class SimpleTable implements Table {
     /**
      * If the table should be modified during runtime, then this list should be concurrent too.
      */
     private final List<Chair> chairs = Collections.synchronizedList(new ArrayList<>());
     private final ConcurrentMap<Chair, Philosopher> blockedChairs = new ConcurrentHashMap<>();
     private final ConcurrentMap<Fork, Philosopher> blockedForks = new ConcurrentHashMap<>();
-    private Optional<TableManager> tableManager = Optional.empty();
+
+    public Map<Chair, Philosopher> getChairsByPhilosopher() {
+        return blockedChairs;
+    }
+
+    public Map<Fork, Philosopher> getForksByPhilosopher() {
+        return blockedForks;
+    }
 
     @Override
     public void addChairs(int chairCount) {
@@ -29,15 +40,10 @@ public class TableImpl implements Table {
 
     @Override
     public Optional<Chair> getFreeChair(final Philosopher philosopher) {
-        Optional<Chair> chairOptional = Optional.empty();
-        if (!getTableManager().isPresent() || getTableManager().isPresent() && getTableManager().get().apply(philosopher)) {
-            chairOptional = chairs.parallelStream()
-                    .filter(chair -> !blockedChairs.containsKey(chair))
-                    .findFirst();
-            if (chairOptional.isPresent()) {
-                blockChair(chairOptional.get(), philosopher);
-            }
-        }
+        final Optional<Chair> chairOptional = chairs.parallelStream()
+                .filter(chair -> !blockedChairs.containsKey(chair))
+                .findFirst();
+        chairOptional.ifPresent(chair -> blockChair(chair, philosopher));
         return chairOptional;
     }
 
@@ -51,19 +57,13 @@ public class TableImpl implements Table {
     }
 
     @Override
-    public Optional<Fork> getForkAtChair(final Chair chair, final Philosopher philosopher) {
-        final Fork fork = chair.getFork();
-        if (!blockedForks.containsKey(fork)) {
-            blockFork(fork, philosopher);
-            return Optional.of(fork);
-        }
-        return Optional.empty();
+    public boolean isForkFree(Fork fork) {
+        return !blockedForks.containsKey(fork);
     }
 
     @Override
     public void blockChair(Chair chair, Philosopher philosopher) {
         blockedChairs.put(chair, philosopher);
-        getTableManager().ifPresent(tableMaster -> tableMaster.register(philosopher));
     }
 
     @Override
@@ -94,15 +94,5 @@ public class TableImpl implements Table {
                 blockedForks.remove(forkPhilosopherEntry.get().getKey());
             }
         }
-    }
-
-    @Override
-    public void setTableManager(final TableManager tableManager) {
-        this.tableManager = Optional.ofNullable(tableManager);
-    }
-
-    @Override
-    public Optional<TableManager> getTableManager() {
-        return tableManager;
     }
 }

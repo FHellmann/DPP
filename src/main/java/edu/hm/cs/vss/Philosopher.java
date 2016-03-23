@@ -4,21 +4,17 @@ import edu.hm.cs.vss.impl.PhilosopherImpl;
 import edu.hm.cs.vss.log.ConsoleLogger;
 import edu.hm.cs.vss.log.Logger;
 
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.Date;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 /**
  * Created by Fabio Hellmann on 17.03.2016.
  */
 public interface Philosopher extends Runnable {
     int DEFAULT_EAT_ITERATIONS = 3;
+    int MAX_DEADLOCK_COUNT = 10;
     long DEFAULT_TIME_TO_SLEEP = TimeUnit.MILLISECONDS.convert(10, TimeUnit.MILLISECONDS);
     long DEFAULT_TIME_TO_MEDIATE = TimeUnit.MILLISECONDS.convert(5, TimeUnit.MILLISECONDS);
     long DEFAULT_TIME_TO_EAT = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MILLISECONDS);
@@ -44,18 +40,6 @@ public interface Philosopher extends Runnable {
      * @return the table.
      */
     Table getTable();
-
-    /**
-     * Get the amount of forks the philosopher hold in his hands.
-     *
-     * @return the amount of forks.
-     */
-    int getForkCount();
-
-    /**
-     * Set the amount of forks the philosopher hold in his hands now.
-     */
-    void setForkCount(final int count);
 
     /**
      * Get the amount of eaten meals.
@@ -121,53 +105,47 @@ public interface Philosopher extends Runnable {
      */
     Consumer<Philosopher> onDeadlock();
 
-    default Chair sitDown() {
-        return waitingForFreeChair();
+    default Chair waitForSitDown() {
+        Optional<Chair> chairOptional;
+        do {
+            chairOptional = getTable().getFreeChair(this);
+        } while (!chairOptional.isPresent());
+
+        return chairOptional.get();
     }
 
     default void standUp() {
         getTable().unblockChair(this);
-        setForkCount(0);
     }
 
-    default Fork pickFork(final Chair chair) {
-        return waitingForFork(chair);
+    default void waitForForks(final Chair chair) {
+        final Fork fork = chair.getFork();
+
+        final Chair neighbourChair = getTable().getNeighbourChair(chair);
+        final Fork neighbourFork = neighbourChair.getFork();
+
+        int deadlockDetectionCount = 0;
+        int forkCount = 0;
+        do {
+            if (getTable().isForkFree(fork)) {
+                getTable().blockFork(fork, this);
+                forkCount++;
+            }
+
+            if (getTable().isForkFree(neighbourFork)) {
+                getTable().blockFork(neighbourFork, this);
+                forkCount++;
+            }
+
+            if (deadlockDetectionCount++ > MAX_DEADLOCK_COUNT) {
+                onDeadlock().accept(this);
+                deadlockDetectionCount = 0;
+            }
+        } while (forkCount != 2);
     }
 
     default void releaseForks() {
         getTable().unblockForks(this);
-    }
-
-    default Chair waitingForFreeChair() {
-        say("Waiting for a free chair...");
-        Optional<Chair> chairOptional = Optional.empty();
-        while (!chairOptional.isPresent()) {
-            chairOptional = getTable().getFreeChair(this);
-            getBannedTime().ifPresent(time -> {
-                say("The table master banned me! :(");
-                onThreadSleep(getBannedTime().get());
-            });
-        }
-        say("Sit down on " + chairOptional.get().toString());
-        return chairOptional.get();
-    }
-
-    default Fork waitingForFork(final Chair chair) {
-        say("Waiting for my " + (getForkCount() + 1) + " fork from " + chair.toString() + " to eat...");
-        Optional<Fork> forkOptional = Optional.empty();
-        int count = 0;
-        while (!forkOptional.isPresent()) {
-            forkOptional = getTable().getForkAtChair(chair, this);
-
-            // Deadlock Detection!
-            if (count++ > 3 && getForkCount() < 2 && !forkOptional.isPresent()) {
-                onDeadlock().accept(this);
-                count = 0;
-            }
-        }
-        say("I've got my " + (getForkCount() + 1) + " fork from " + chair.toString());
-        setForkCount(getForkCount() + 1);
-        return forkOptional.get();
     }
 
     /**
@@ -204,13 +182,16 @@ public interface Philosopher extends Runnable {
         while (!Thread.currentThread().isInterrupted()) {
             // 3 Iterations by default... or more if the philosopher is very hungry
             IntStream.rangeClosed(0, getEatIterationCount() - 1)
-                    .mapToObj(index -> sitDown())
-                    .peek(chair -> Stream.of(chair, getTable().getNeighbourChair(chair))
-                            .parallel().forEach(this::pickFork))
-                    .peek(chair -> eat()) // Has a seat + 2 Forks -> eat
-                    .peek(chair -> say("Stand up from " + chair.toString()))
-                    .peek(chair -> standUp())
-                    .forEach(chair -> mediate()); // Stand up and go to mediation / sleep
+                    .peek(tmp -> say("Waiting for a nice seat..."))
+                    .mapToObj(index -> waitForSitDown()) // Sit down on a free chair -> waiting for a free
+                    .peek(tmp -> say("Found a nice seat (" + tmp.toString() + ")"))
+                    .peek(tmp -> say("Waiting for 2 forks..."))
+                    .peek(this::waitForForks) // Grab two forks -> waiting for two free
+                    .peek(tmp -> say("Found 2 forks! :D"))
+                    .peek(tmp -> eat()) // Eat the next portion
+                    .peek(tmp -> say("Stand up from seat (" + tmp.toString() + ")"))
+                    .peek(tmp -> standUp()) // Stand up from chair
+                    .forEach(tmp -> mediate()); // Go to mediate
 
             // Sleep
             sleep();
@@ -223,7 +204,9 @@ public interface Philosopher extends Runnable {
 
     default void onThreadSleep(final long time) {
         try {
-            Thread.sleep(time);
+            if (!Thread.currentThread().isInterrupted()) {
+                Thread.sleep(time);
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

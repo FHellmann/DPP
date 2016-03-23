@@ -6,7 +6,6 @@ import java.util.Optional;
  * Created by Fabio Hellmann on 17.03.2016.
  */
 public interface Table {
-
     /**
      * For initialization of the chair count.
      *
@@ -31,12 +30,12 @@ public interface Table {
     Chair getNeighbourChair(final Chair chair);
 
     /**
-     * Get the fork, which lay at the right side.
+     * Check whether the fork is available or not.
      *
-     * @param chair to get the forks from.
-     * @return the forks.
+     * @param fork to check.
+     * @return <code>true</code> if the fork is available.
      */
-    Optional<Fork> getForkAtChair(final Chair chair, final Philosopher philosopher);
+    boolean isForkFree(final Fork fork);
 
     /**
      * Set the chair blocked, so no other philosopher can sit down on this chair.
@@ -67,18 +66,4 @@ public interface Table {
      * @param philosopher who got this fork till now.
      */
     void unblockForks(final Philosopher philosopher);
-
-    /**
-     * Set the table "Master".
-     *
-     * @param tableManager to set as table "Master".
-     */
-    void setTableManager(final TableManager tableManager);
-
-    /**
-     * Get the table "Master".
-     *
-     * @return the table "Master".
-     */
-    Optional<TableManager> getTableManager();
 }

@@ -18,7 +18,6 @@ public class PhilosopherImpl implements Philosopher {
     private final long timeEat;
     private final long timeMediate;
     private final Consumer<Philosopher> deadlock;
-    private volatile int forkCount;
     private int eatIterations;
     private int mealCount;
     private long bannedTime = -1;
@@ -65,16 +64,6 @@ public class PhilosopherImpl implements Philosopher {
     @Override
     public Table getTable() {
         return table;
-    }
-
-    @Override
-    public int getForkCount() {
-        return forkCount;
-    }
-
-    @Override
-    public void setForkCount(int forkCount) {
-        this.forkCount = forkCount;
     }
 
     @Override
