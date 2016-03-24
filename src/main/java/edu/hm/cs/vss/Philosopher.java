@@ -2,6 +2,7 @@ package edu.hm.cs.vss;
 
 import edu.hm.cs.vss.impl.PhilosopherImpl;
 import edu.hm.cs.vss.log.ConsoleLogger;
+import edu.hm.cs.vss.log.EmptyLogger;
 import edu.hm.cs.vss.log.Logger;
 
 import java.util.Optional;
@@ -237,7 +238,7 @@ public interface Philosopher extends Runnable {
     class Builder {
         private static int count = 1;
         private String name = "Philosopher-" + (count++);
-        private Logger logger = new ConsoleLogger();
+        private Logger logger = new EmptyLogger();
         private Table table;
         private long timeSleep = DEFAULT_TIME_TO_SLEEP;
         private long timeEat = DEFAULT_TIME_TO_EAT;

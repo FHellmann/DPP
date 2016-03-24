@@ -1,0 +1,66 @@
+Parameter:	5 Philosophen <-> 5 Stühle
+
+{Anzahl sitzender Philosophen} <-> {Anzahl Stühle}
+
+0. Runde:
+5 <-> 5
+3 -> essen (3x 1ms)
+2 -> warten auf Gabeln
+Insgesamt = 3ms
+
+1. Runde:
+2 <-> 5
+2 -> essen (2x 1ms)
+3 -> meditieren (3x 5ms)
+Insgesamt = 17ms
+
+2. Runde:
+3 <-> 5
+3 -> essen (3x 1ms)
+2 -> meditieren (2x 5ms)
+Insgesamt = 13ms
+
+3. Runde:
+2 <-> 5
+2 -> essen (2x 1ms)
+3 -> meditieren (3x 5ms)
+Insgesamt = 17ms
+
+4. Runde:
+3 <-> 5
+3 -> essen (3x 1ms)
+2 -> meditieren (2x 5ms)
+Insgesamt = 13ms
+
+5. Runde:
+2 <-> 5
+2 -> essen (2x 1ms)
+3 -> meditieren (3x 5ms)
+Insgesamt = 17ms
+
+6. Runde:
+0 <-> 5
+3 -> schlafen (3x 10ms)
+2 -> meditieren (2x 5ms)
+Insgesamt = 40ms
+
+7. Runde:
+3 <-> 5
+3 -> essen (3x 1ms)
+2 -> schlafen (2x 10ms)
+Insgesamt = 23ms
+
+0.-7. Runde = 143ms
+
+8. Runde = 1. Runde (Wiederholung)
+
+1.-7. Runde = 140ms
+
+
+
+							Programstart               Wiederholung
+Programmlaufzeit:	[143ms (0.-7. Runde) * 1] + [140ms (1.-7. Runde) * 427] = 59.923ms <= 60.000
+
+Essensvorgänge:		[ 18 (0.-7. Runde)   * 1] + [ 15 (1.-7. Runde)   * 427] = 14.091 / 5 (Philosophen) ~= 2.818
+
+
