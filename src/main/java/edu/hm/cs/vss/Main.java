@@ -58,7 +58,7 @@ public class Main {
                             .setDeadlockFunction(philosopher -> {
                                 philosopher.releaseForks();
                                 try {
-                                    philosopher.onThreadSleep((long) (Math.random() * philosopherCount * 100));
+                                    philosopher.onThreadSleep((long) (Math.random() * philosopherCount));
                                 } catch (InterruptedException e) {
                                     throw new RuntimeException(e);
                                 }
