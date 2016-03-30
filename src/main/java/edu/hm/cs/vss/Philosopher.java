@@ -143,13 +143,20 @@ public interface Philosopher extends Runnable {
         int deadlockDetectionCount = 0;
         int forkCount = 0;
 
-        // TODO 2 Schleifen für diesen Vorgang
         do {
             if (getTable().blockFork(fork, this).isPresent()) {
                 say("Picked up fork (" + fork.toString() + ")");
                 forkCount++;
             }
 
+            if (deadlockDetectionCount++ > MAX_DEADLOCK_COUNT) {
+                onDeadlock().accept(this);
+                deadlockDetectionCount = 0;
+                forkCount = 0;
+            }
+        } while (forkCount < 1);
+
+        do {
             if (getTable().blockFork(neighbourFork, this).isPresent()) {
                 say("Picked up fork (" + neighbourFork.toString() + ")");
                 forkCount++;
