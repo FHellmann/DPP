@@ -1,10 +1,11 @@
 package edu.hm.cs.vss;
 
+import edu.hm.cs.vss.impl.TableImpl;
 import edu.hm.cs.vss.log.EmptyLogger;
 import edu.hm.cs.vss.log.FileLogger;
 import edu.hm.cs.vss.log.Logger;
 import edu.hm.cs.vss.log.merger.LogMerger;
-import edu.hm.cs.vss.table.TableWithMaster;
+import edu.hm.cs.vss.impl.TableMasterImpl;
 
 import java.io.File;
 import java.io.IOException;
@@ -39,8 +40,9 @@ public class Main {
             veryHungry = false;
         }
 
-        final Table table = new TableWithMaster(new EmptyLogger());
+        final Table table = new TableImpl(new EmptyLogger());
         table.addChairs(chairCount);
+        table.setTableMaster(new TableMasterImpl());
 
         final ExecutorService executorService = Executors.newCachedThreadPool(r -> {
             Thread t = new Thread(r);

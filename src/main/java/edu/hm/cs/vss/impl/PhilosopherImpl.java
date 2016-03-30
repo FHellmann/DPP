@@ -1,11 +1,17 @@
 package edu.hm.cs.vss.impl;
 
+import edu.hm.cs.vss.Chair;
+import edu.hm.cs.vss.Fork;
 import edu.hm.cs.vss.Philosopher;
 import edu.hm.cs.vss.Table;
 import edu.hm.cs.vss.log.Logger;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Created by Fabio Hellmann on 17.03.2016.
@@ -18,9 +24,12 @@ public class PhilosopherImpl implements Philosopher {
     private final long timeEat;
     private final long timeMediate;
     private final Consumer<Philosopher> deadlock;
+    private Chair chair;
+    private List<Fork> forks = new ArrayList<>();
     private int eatIterations;
     private int mealCount;
     private long bannedTime = -1;
+    private OnStandUpListener onStandUpListener;
 
     public PhilosopherImpl(final String name,
                            final Logger logger,
@@ -33,7 +42,7 @@ public class PhilosopherImpl implements Philosopher {
         this(name, logger, table, timeSleep, timeEat, veryHungry ? timeMediate / 2 : timeMediate, deadlock, veryHungry ? DEFAULT_EAT_ITERATIONS * 2 : DEFAULT_EAT_ITERATIONS);
     }
 
-    public PhilosopherImpl(final String name,
+    private PhilosopherImpl(final String name,
                            final Logger logger,
                            final Table table,
                            final long timeSleep,
@@ -112,6 +121,50 @@ public class PhilosopherImpl implements Philosopher {
     @Override
     public long getTimeToMediate() {
         return timeMediate;
+    }
+
+    @Override
+    public Chair waitForSitDown() {
+        this.chair = Philosopher.super.waitForSitDown();
+        return chair;
+    }
+
+    @Override
+    public void standUp() {
+        Philosopher.super.standUp();
+        chair = null;
+    }
+
+    @Override
+    public Optional<Chair> getChair() {
+        return Optional.ofNullable(chair);
+    }
+
+    @Override
+    public Stream<Fork> waitForForks(Chair chair) {
+        this.forks = Philosopher.super.waitForForks(chair).collect(Collectors.toList());
+        return forks.stream();
+    }
+
+    @Override
+    public void releaseForks() {
+        Philosopher.super.releaseForks();
+        forks.clear();
+    }
+
+    @Override
+    public Stream<Fork> getForks() {
+        return forks.stream();
+    }
+
+    @Override
+    public void setOnStandUpListener(OnStandUpListener listener) {
+        onStandUpListener = listener;
+    }
+
+    @Override
+    public Optional<OnStandUpListener> getOnStandUpListener() {
+        return Optional.ofNullable(onStandUpListener);
     }
 
     @Override
