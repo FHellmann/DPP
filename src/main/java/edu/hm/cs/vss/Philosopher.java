@@ -142,6 +142,8 @@ public interface Philosopher extends Runnable {
 
         int deadlockDetectionCount = 0;
         int forkCount = 0;
+
+        // TODO 2 Schleifen für diesen Vorgang
         do {
             if (getTable().blockFork(fork, this).isPresent()) {
                 say("Picked up fork (" + fork.toString() + ")");

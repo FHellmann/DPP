@@ -30,6 +30,7 @@ public class TableWithMaster extends SimpleTable {
             philosopherList.add(philosopher);
         }
 
+        // TODO Kann bei zu vielen Philosophen zu lange dauern!
         if (philosopher.getMealCount() >= philosopherList.stream().mapToInt(Philosopher::getMealCount).min().orElse(0) + MAX_DEVIATION) {
             philosopher.banned();
             return Optional.empty();

@@ -42,6 +42,8 @@ public class SimpleTable implements Table {
 
     @Override
     public Optional<Chair> getFreeChair(final Philosopher philosopher) {
+        // TODO Kommentare
+        // TODO Bessere Lösung möglich -> Philosophen müssen auf Plätze warten?!
         return chairs.parallelStream()
                 .filter(chair -> !blockedChairs.containsKey(chair))
                 .findFirst()
@@ -59,6 +61,7 @@ public class SimpleTable implements Table {
 
     @Override
     public Optional<Chair> blockChair(Chair chair, Philosopher philosopher) {
+        // TODO Kommentare
         if (blockedChairs.putIfAbsent(chair, philosopher) == null) {
             getLogger().log("Blocked " + chair.toString() + " by " + philosopher.getName());
             return Optional.of(chair);
