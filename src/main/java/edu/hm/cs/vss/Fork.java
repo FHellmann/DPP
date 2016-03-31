@@ -9,7 +9,7 @@ public interface Fork {
 
     boolean isAvailable();
 
-    Optional<Fork> block();
+    Optional<Fork> blockIfAvailable();
 
     void unblock();
 }

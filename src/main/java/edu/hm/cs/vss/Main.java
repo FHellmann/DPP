@@ -1,11 +1,10 @@
 package edu.hm.cs.vss;
 
 import edu.hm.cs.vss.impl.TableImpl;
-import edu.hm.cs.vss.log.EmptyLogger;
+import edu.hm.cs.vss.impl.TableMasterMealCount;
 import edu.hm.cs.vss.log.FileLogger;
 import edu.hm.cs.vss.log.Logger;
 import edu.hm.cs.vss.log.merger.LogMerger;
-import edu.hm.cs.vss.impl.TableMasterImpl;
 
 import java.io.File;
 import java.io.IOException;
@@ -35,14 +34,14 @@ public class Main {
         } else {
             // Defaults
             runtime = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MINUTES);
-            philosopherCount = 5;
-            chairCount = 5;
+            philosopherCount = 50;
+            chairCount = 10;
             veryHungry = false;
         }
 
-        final Table table = new TableImpl(new EmptyLogger());
+        final Table table = new TableImpl();
         table.addChairs(chairCount);
-        table.setTableMaster(new TableMasterImpl());
+        table.setTableMaster(new TableMasterMealCount());
 
         final ExecutorService executorService = Executors.newCachedThreadPool(r -> {
             Thread t = new Thread(r);
@@ -51,30 +50,13 @@ public class Main {
         });
 
         final List<Philosopher> philosopherList = IntStream.rangeClosed(1, philosopherCount)
-                .mapToObj(index -> {
-                    final String name = (index == 1 && veryHungry) ? "Hungry-Philosopher-" + index : "Philosopher-" + index;
-                    final Philosopher.Builder builder = new Philosopher.Builder()
-                            .setLogger(new FileLogger(name))
-                            .setTable(table)
-                            .name(name)
-                            .setDeadlockFunction(philosopher -> {
-                                philosopher.releaseForks();
-                                try {
-                                    philosopher.onThreadSleep((long) (Math.random() * philosopherCount));
-                                } catch (InterruptedException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            });
-                    if (index == 1 && veryHungry) {
-                        builder.setVeryHungry();
-                    }
-                    return builder.create();
-                })
+                .mapToObj(index -> new Philosopher.Builder()
+                        .setFileLogger()
+                        .setTable(table)
+                        .setVeryHungry(veryHungry && index == 1)
+                        .create())
+                .peek(executorService::execute)
                 .collect(Collectors.toList());
-
-        System.out.println("Start program...");
-
-        philosopherList.forEach(executorService::execute);
 
         try {
             Thread.sleep(runtime);
@@ -87,7 +69,7 @@ public class Main {
         // Waiting for all threads to finish
         executorService.shutdownNow();
         try {
-            executorService.awaitTermination(1, TimeUnit.MINUTES);
+            executorService.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

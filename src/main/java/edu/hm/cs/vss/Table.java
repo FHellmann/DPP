@@ -14,10 +14,14 @@ public interface Table {
      */
     void addChairs(final int chairCount);
 
+    void addChair(final Chair chair);
+
+    Optional<Chair> getChair(final Philosopher philosopher) throws InterruptedException;
+
     /**
      * Get the next free chair or null. If a free chair was found, this chair will be automatically blocked.
      *
-     * @param philosopher who want a seat.
+     * @param philosopher who wants a seat.
      * @return the next free chair or null.
      */
     Stream<Chair> getFreeChairs(final Philosopher philosopher);

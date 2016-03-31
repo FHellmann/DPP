@@ -9,7 +9,6 @@ import edu.hm.cs.vss.log.Logger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -23,7 +22,6 @@ public class PhilosopherImpl implements Philosopher {
     private final long timeSleep;
     private final long timeEat;
     private final long timeMediate;
-    private final Consumer<Philosopher> deadlock;
     private Chair chair;
     private List<Fork> forks = new ArrayList<>();
     private int eatIterations;
@@ -37,9 +35,8 @@ public class PhilosopherImpl implements Philosopher {
                            final long timeSleep,
                            final long timeEat,
                            final long timeMediate,
-                           final boolean veryHungry,
-                           final Consumer<Philosopher> deadlock) {
-        this(name, logger, table, timeSleep, timeEat, veryHungry ? timeMediate / 2 : timeMediate, deadlock, veryHungry ? DEFAULT_EAT_ITERATIONS * 2 : DEFAULT_EAT_ITERATIONS);
+                           final boolean veryHungry) {
+        this(name, logger, table, timeSleep, timeEat, veryHungry ? timeMediate / 2 : timeMediate, veryHungry ? DEFAULT_EAT_ITERATIONS * 2 : DEFAULT_EAT_ITERATIONS);
     }
 
     private PhilosopherImpl(final String name,
@@ -48,7 +45,6 @@ public class PhilosopherImpl implements Philosopher {
                            final long timeSleep,
                            final long timeEat,
                            final long timeMediate,
-                           final Consumer<Philosopher> deadlock,
                            final int eatIterations) {
         this.name = name;
         this.logger = logger;
@@ -56,7 +52,6 @@ public class PhilosopherImpl implements Philosopher {
         this.timeSleep = timeSleep;
         this.timeEat = timeEat;
         this.timeMediate = timeMediate;
-        this.deadlock = deadlock;
         this.eatIterations = eatIterations;
     }
 
@@ -165,10 +160,5 @@ public class PhilosopherImpl implements Philosopher {
     @Override
     public Optional<OnStandUpListener> getOnStandUpListener() {
         return Optional.ofNullable(onStandUpListener);
-    }
-
-    @Override
-    public Consumer<Philosopher> onDeadlock() {
-        return deadlock;
     }
 }

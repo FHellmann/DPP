@@ -29,7 +29,7 @@ public class ChairImpl implements Chair {
     }
 
     @Override
-    public synchronized Optional<Chair> block() {
+    public synchronized Optional<Chair> blockIfAvailable() {
         if(isAvailable()) {
             block = true;
             return Optional.of(this);

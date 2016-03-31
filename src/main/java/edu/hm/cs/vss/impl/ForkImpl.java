@@ -28,7 +28,7 @@ public class ForkImpl implements Fork {
     }
 
     @Override
-    public synchronized Optional<Fork> block() {
+    public synchronized Optional<Fork> blockIfAvailable() {
         if(isAvailable()) {
             block = true;
             return Optional.of(this);

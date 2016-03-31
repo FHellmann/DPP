@@ -2,13 +2,14 @@ package edu.hm.cs.vss;
 
 import edu.hm.cs.vss.impl.PhilosopherImpl;
 import edu.hm.cs.vss.log.EmptyLogger;
+import edu.hm.cs.vss.log.FileLogger;
 import edu.hm.cs.vss.log.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -17,11 +18,15 @@ import java.util.stream.Stream;
  */
 public interface Philosopher extends Runnable {
     int DEFAULT_EAT_ITERATIONS = 3;
-    int MAX_DEADLOCK_COUNT = 3;
     long DEFAULT_TIME_TO_SLEEP = TimeUnit.MILLISECONDS.convert(10, TimeUnit.MILLISECONDS);
     long DEFAULT_TIME_TO_MEDIATE = TimeUnit.MILLISECONDS.convert(5, TimeUnit.MILLISECONDS);
     long DEFAULT_TIME_TO_EAT = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MILLISECONDS);
     long DEFAULT_TIME_TO_BANN = TimeUnit.MILLISECONDS.convert(5, TimeUnit.MILLISECONDS);
+    int MAX_DEADLOCK_COUNT = 10;
+    DeadlockFunction DEADLOCK_FUNCTION = (philosopher, forks) -> {
+        forks.parallelStream().forEach(Fork::unblock);
+        forks.clear();
+    };
 
     /**
      * Get the name of the philosopher.
@@ -109,23 +114,17 @@ public interface Philosopher extends Runnable {
 
     Optional<OnStandUpListener> getOnStandUpListener();
 
-    /**
-     * Get the action to do on cause of a deadlock.
-     *
-     * @return the deadlock action.
-     */
-    Consumer<Philosopher> onDeadlock();
-
     default Chair waitForSitDown() {
         say("Waiting for a nice seat...");
 
         Optional<Chair> chairOptional;
         do {
-            chairOptional = getTable().getFreeChairs(this)
-                    .map(Chair::block)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .findAny();
+            try {
+                chairOptional = getTable().getChair(this);
+                chairOptional.ifPresent(Chair::blockIfAvailable);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
 
             getBannedTime().ifPresent(time -> {
                 say("I'm banned for " + time + " ms :'(");
@@ -137,9 +136,10 @@ public interface Philosopher extends Runnable {
             });
         } while (!chairOptional.isPresent());
 
-        say("Found a nice seat (" + chairOptional.get().toString() + ")");
+        final Chair chair = chairOptional.get();
+        say("Found a nice seat (" + chair.toString() + ")");
 
-        return chairOptional.get();
+        return chair;
     }
 
     /**
@@ -147,7 +147,11 @@ public interface Philosopher extends Runnable {
      */
     default void standUp() {
         releaseForks();
-        getChair().ifPresent(Chair::unblock);
+        say("Stand up from seat (" + getChair().get().toString() + ")");
+        getChair().ifPresent(chair -> {
+            chair.unblock();
+            getTable().addChair(chair);
+        });
     }
 
     default Stream<Fork> waitForForks(final Chair chair) {
@@ -158,38 +162,40 @@ public interface Philosopher extends Runnable {
         final Fork fork = chair.getFork();
         final Fork neighbourFork = getTable().getNeighbourChair(chair).getFork();
 
-        int deadlockDetectionCount = 0;
+        while (foundForks.size() < 2) {
+            // Reset all
+            int deadlockDetectionCount = 0;
 
-        // TODO: So wird das mit Sicherheit nicht funktionieren!!!
-        do {
-            if (fork.isAvailable()) {
-                fork.block();
-                say("Picked up fork (" + fork.toString() + ")");
-                foundForks.add(fork);
-                break;
+            // Try to get the right fork
+            while (foundForks.size() < 1) {
+                fork.blockIfAvailable().ifPresent(foundForks::add);
+
+                if (foundForks.size() < 1 && deadlockDetectionCount++ > MAX_DEADLOCK_COUNT) {
+                    DEADLOCK_FUNCTION.onDeadlockDetected(this, foundForks);
+                    break;
+                }
             }
 
-            if (deadlockDetectionCount++ > MAX_DEADLOCK_COUNT) {
-                onDeadlock().accept(this);
-                deadlockDetectionCount = 0;
-            }
-        } while (foundForks.size() < 1);
-
-        do {
-            if (neighbourFork.isAvailable()) {
-                neighbourFork.block();
-                say("Picked up fork (" + neighbourFork.toString() + ")");
-                foundForks.add(neighbourFork);
-                break;
+            if (foundForks.size() < 1) {
+                // First fork was not found -> skip to start
+                continue;
             }
 
-            if (deadlockDetectionCount++ > MAX_DEADLOCK_COUNT) {
-                onDeadlock().accept(this);
-                deadlockDetectionCount = 0;
-            }
-        } while (foundForks.size() < 2);
+            // Reset only the deadlock counter
+            deadlockDetectionCount = 0;
 
-        say("Found 2 forks! :D");
+            // Try to get the left fork
+            while (foundForks.size() < 2) {
+                neighbourFork.blockIfAvailable().ifPresent(foundForks::add);
+
+                if (foundForks.size() < 2 && deadlockDetectionCount++ > MAX_DEADLOCK_COUNT) {
+                    DEADLOCK_FUNCTION.onDeadlockDetected(this, foundForks);
+                    break;
+                }
+            }
+        }
+
+        say("Found 2 forks (" + fork.toString() + ", " + neighbourFork.toString() + ")! :D");
 
         return foundForks.stream();
     }
@@ -198,6 +204,8 @@ public interface Philosopher extends Runnable {
      * Unblock all forks and reset the forks the philosopher holds.
      */
     default void releaseForks() {
+        final String forks = getForks().map(Object::toString).collect(Collectors.joining(", "));
+        say("Release my forks" + ((forks.length() > 0) ? " (" + forks + ")" : " (no forks picked yet)"));
         getForks().forEach(Fork::unblock);
     }
 
@@ -261,6 +269,7 @@ public interface Philosopher extends Runnable {
                 sleep();
             }
         } catch (Exception e) {
+            // just for leaving the while loop
         }
 
         getTable().getTableMaster().ifPresent(tableMaster -> tableMaster.unregister(this));
@@ -274,19 +283,25 @@ public interface Philosopher extends Runnable {
         Thread.sleep(time);
     }
 
+    @FunctionalInterface
     interface OnStandUpListener {
         void onStandUp(final Philosopher philosopher);
     }
 
+    @FunctionalInterface
+    interface DeadlockFunction {
+        void onDeadlockDetected(final Philosopher philosopher, final List<Fork> forkStream);
+    }
+
     class Builder {
         private static int count = 1;
+        private String namePrefix = "";
         private String name = "Philosopher-" + (count++);
         private Logger logger = new EmptyLogger();
         private Table table;
         private long timeSleep = DEFAULT_TIME_TO_SLEEP;
         private long timeEat = DEFAULT_TIME_TO_EAT;
         private long timeMediate = DEFAULT_TIME_TO_MEDIATE;
-        private Consumer<Philosopher> deadlockConsumer = philosopher -> philosopher.say("I'm in a deadlock!");
         private boolean veryHungry;
 
         public Builder name(final String name) {
@@ -297,6 +312,10 @@ public interface Philosopher extends Runnable {
         public Builder setTable(final Table table) {
             this.table = table;
             return this;
+        }
+
+        public Builder setFileLogger() {
+            return setLogger(new FileLogger(name));
         }
 
         public Builder setLogger(final Logger logger) {
@@ -319,13 +338,9 @@ public interface Philosopher extends Runnable {
             return this;
         }
 
-        public Builder setVeryHungry() {
-            this.veryHungry = true;
-            return this;
-        }
-
-        public Builder setDeadlockFunction(final Consumer<Philosopher> deadlockConsumer) {
-            this.deadlockConsumer = deadlockConsumer;
+        public Builder setVeryHungry(final boolean veryHungry) {
+            this.veryHungry = veryHungry;
+            this.namePrefix = "Hungry-";
             return this;
         }
 
@@ -333,7 +348,7 @@ public interface Philosopher extends Runnable {
             if (table == null) {
                 throw new NullPointerException("Table can not be null. Use new Philosopher.Builder().setTable(Table).create()");
             }
-            return new PhilosopherImpl(name, logger, table, timeSleep, timeEat, timeMediate, veryHungry, deadlockConsumer);
+            return new PhilosopherImpl(namePrefix + name, logger, table, timeSleep, timeEat, timeMediate, veryHungry);
         }
     }
 }

@@ -11,7 +11,7 @@ public interface Chair {
 
     boolean isAvailable();
 
-    Optional<Chair> block();
+    Optional<Chair> blockIfAvailable();
 
     void unblock();
 }

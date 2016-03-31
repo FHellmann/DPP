@@ -9,9 +9,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * Created by Fabio on 22.03.2016.
  */
-public class TableMasterImpl implements TableMaster, Philosopher.OnStandUpListener {
+public class TableMasterMealCount implements TableMaster, Philosopher.OnStandUpListener {
     private final List<Philosopher> philosopherList = new CopyOnWriteArrayList<>();
-    private volatile int minMealCount;
+    private volatile int maxMealCount;
 
     @Override
     public void register(Philosopher philosopher) {
@@ -27,11 +27,17 @@ public class TableMasterImpl implements TableMaster, Philosopher.OnStandUpListen
 
     @Override
     public boolean isAllowedToTakeSeat(Philosopher philosopher) {
-        return philosopher.getMealCount() <= MAX_DEVIATION + minMealCount;
+        if(philosopher.getMealCount() <= maxMealCount) {
+            philosopher.unbanned();
+            return true;
+        } else {
+            philosopher.banned();
+            return false;
+        }
     }
 
     @Override
     public void onStandUp(Philosopher philosopher) {
-        minMealCount = philosopherList.parallelStream().mapToInt(Philosopher::getMealCount).min().orElse(0);
+        maxMealCount = philosopherList.parallelStream().mapToInt(Philosopher::getMealCount).min().orElse(0) + MAX_DEVIATION;
     }
 }
