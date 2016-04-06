@@ -347,7 +347,9 @@ public interface Philosopher extends Runnable {
 
         public Builder setVeryHungry(final boolean veryHungry) {
             this.veryHungry = veryHungry;
-            this.namePrefix = "Hungry-";
+            if(veryHungry) {
+                this.namePrefix = "Hungry-";
+            }
             return this;
         }
 
