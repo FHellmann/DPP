@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -19,6 +20,8 @@ import java.util.stream.IntStream;
  */
 public class Main {
     public static void main(String[] args) throws IOException {
+        System.out.println("java -jar Program <runtime> <philosophers> <chairs> <ishungry>");
+
         final long runtime; // Duration of the program activity
         final int philosopherCount; // Amount of philosophers
         final int chairCount; // Amount of chairs
@@ -38,12 +41,19 @@ public class Main {
             veryHungry = false;
         }
 
+        System.out.println("java -jar Program <runtime=" + runtime + "> <philosophers=" + philosopherCount +
+                "> <chairs=" + chairCount + "> <ishungry=" + veryHungry + ">");
+
         final Table table = new Table.Builder()
                 .withChairCount(chairCount)
                 .withTableMaster(new TableMasterMealObserver())
                 .create();
 
-        final ExecutorService executorService = Executors.newCachedThreadPool();
+        final ExecutorService executorService = Executors.newCachedThreadPool(r -> {
+            final Thread thread = new Thread(r);
+            thread.setDaemon(true);
+            return thread;
+        });
 
         final List<Philosopher> philosopherList = IntStream.rangeClosed(1, philosopherCount)
                 .mapToObj(index -> new Philosopher.Builder()
