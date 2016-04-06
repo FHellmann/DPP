@@ -22,7 +22,7 @@ public class Main {
         final long runtime; // Duration of the program activity
         final int philosopherCount; // Amount of philosophers
         final int chairCount; // Amount of chairs
-        final boolean veryHungry; // Is the first philosopher vergy hungry?
+        final boolean veryHungry; // Is the first philosopher very hungry?
         if (args.length == 4) {
             // Manual user input
             int index = 0;
