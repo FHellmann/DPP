@@ -26,6 +26,7 @@ public final class LogMerger {
                 final BufferedWriter writer = new BufferedWriter(new FileWriter(new File(directory, "logger-merged.txt")));
 
                 Stream.of(values)
+                        .parallel()
                         .filter(File::isFile)
                         .filter(file -> file.getName().startsWith("log-"))
                         .flatMap(file -> {
