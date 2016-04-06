@@ -4,7 +4,7 @@ import sys
 
 def parse_line(line):
     time = '[0-9]{2}\\:[0-9]{2}\\:[0-9]{2}\\.[0-9]{3}'
-    phil = '\\[Philosopher\\-([0-9]*)\\;\\sMeals\\=([0-9]*)\\]'
+    phil = '\\[(Hungry\\-)?Philosopher\\-([0-9]*)\\;\\sMeals\\=([0-9]*)\\]'
     reg = re.compile('(%s)\\s%s\\:\\s(.*)' % (time, phil))
     match = re.match(reg, line).groups()
     return {
@@ -14,59 +14,85 @@ def parse_line(line):
         'msg': match[3]
     }
 
+class LogicError(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
 
 def main():
-    with open('logger-merged.txt') as f:
-        forks = set()
-        chairs = set()
+    if len(sys.argv) <= 1:
+        print("No files supplied")
+        sys.exit(-1)
 
-        linecounter = 1
-        for line in f:
-            chairfound = re.compile('Found a nice seat \\(Chair\\-([0-9]*)\\)')
-            chairleave = re.compile('Stand up from seat \\(Chair\\-([0-9]*)\\)')
-            forktake = re.compile('Picked up fork \\(Fork\\-([0-9]*)\\ from Chair\\-([0-9]*)\\)')
-            forkput = re.compile('Release my fork \\(Fork\\-([0-9]*)\\ from Chair\\-([0-9]*)\\)')
+    for filename in sys.argv[1:]:
+        try:
+            print('Testing file', filename)
+            with open(filename) as f:
+                forks = set()
+                chairs = set()
 
+                linecounter = 1
+                for line in f:
+                    if line.find('#') != -1:
+                        break
 
-            l = parse_line(line)
+                    chairfound = re.compile('Found a nice seat \\(Chair\\-([0-9]*)\\)')
+                    chairleave = re.compile('Stand up from seat \\(Chair\\-([0-9]*)\\)')
 
-            msg = l['msg']
+                    # Found 2 forks (Fork-2 from Chair-2, Fork-1 from Chair-1)! :D
+                    forktake = re.compile('Found 2 forks \\(Fork\\-([0-9]*)\\ from Chair\\-([0-9]*)\\, Fork\\-([0-9]*)\\ from Chair\\-([0-9]*)\\)')
+                    # Release my forks (Fork-1 from Chair-1, Fork-5 from Chair-5)
+                    forkput = re.compile('Release my forks \\(Fork\\-([0-9]*)\\ from Chair\\-([0-9]*)\\, Fork\\-([0-9]*)\\ from Chair\\-([0-9]*)\\)')
 
-            if 'Found a nice seat' in msg:
-                mat = re.match(chairfound, msg)
+                    l = parse_line(line)
 
-                if mat.group(1) in chairs:
-                    print('Chair', mat.group(1), 'already occupied in line', linecounter)
-                    sys.exit(1)
+                    msg = l['msg']
 
-                chairs.add(mat.group(1))
-            elif 'Stand up from seat' in msg:
-                mat = re.match(chairleave, msg)
+                    if 'Found a nice seat' in msg:
+                        mat = re.match(chairfound, msg)
 
-                if mat.group(1) not in chairs:
-                    print('Chair', mat.group(1), 'not occupied in line', linecounter)
-                    sys.exit(1)
+                        if mat.group(1) in chairs:
+                            raise LogicError('Chair ' + mat.group(1) + ' already occupied in line ' + linecounter)
 
-                chairs.remove(mat.group(1))
+                        chairs.add(mat.group(1))
+                    elif 'Stand up from seat' in msg:
+                        mat = re.match(chairleave, msg)
 
-            elif 'Picked up fork' in msg:
-                mat = re.match(forktake, msg)
+                        if mat.group(1) not in chairs:
+                            raise LogicError('Chair ' + mat.group(1) + ' not occupied in line ' + linecounter)
 
-                if mat.group(1) in forks:
-                    print('Fork', mat.group(1), 'already occupied in line', linecounter)
-                    sys.exit(1)
+                        chairs.remove(mat.group(1))
 
-                forks.add(mat.group(1))
-            elif 'Release my fork' in msg:
-                mat = re.match(forkput, msg)
+                    elif 'Picked up fork' in msg:
+                        mat = re.match(forktake, msg)
 
-                if mat.group(1) not in forks:
-                    print('Fork', mat.group(1), 'not occupied in line', linecounter)
-                    sys.exit(1)
+                        if mat.group(1) in forks:
+                            raise LogicError('Fork ' + mat.group(1) + ' already occupied in line ' + linecounter)
 
-                forks.remove(mat.group(1))
+                        if mat.group(2) in forks:
+                            raise LogicError('Fork ' + mat.group(2) + ' already occupied in line ' + linecounter)
 
-            linecounter += 1
+                        forks.add(mat.group(1))
+                        forks.add(mat.group(2))
+                    elif 'Release my fork' in msg:
+                        mat = re.match(forkput, msg)
+
+                        if mat.group(1) not in forks:
+                            raise LogicError('Fork ' + mat.group(1) + ' not occupied in line ' + linecounter)
+
+                        if mat.group(2) not in forks:
+                            raise LogicError('Fork ' + mat.group(1) + ' not occupied in line ' + linecounter)
+
+                        forks.remove(mat.group(1))
+                        forks.remove(mat.group(2))
+
+                    linecounter += 1
+        except LogicError as err:
+            print('Failure! ', err)
+
+    print('Finished')
+    input()
 
 if __name__ == '__main__':
     main()
