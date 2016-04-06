@@ -22,11 +22,12 @@ public interface Philosopher extends Runnable {
     long DEFAULT_TIME_TO_MEDIATE = TimeUnit.MILLISECONDS.convert(5, TimeUnit.MILLISECONDS);
     long DEFAULT_TIME_TO_EAT = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MILLISECONDS);
     long DEFAULT_TIME_TO_BANN = TimeUnit.MILLISECONDS.convert(5, TimeUnit.MILLISECONDS);
+    long DEFAULT_TIME_TO_WAIT_FOR_SITDOWN = TimeUnit.MILLISECONDS.convert(2, TimeUnit.MILLISECONDS);
     int MAX_DEADLOCK_COUNT = 10;
     DeadlockFunction DEADLOCK_FUNCTION = (philosopher, forks) -> {
         forks.parallelStream().forEach(Fork::unblock);
         forks.clear();
-        Thread.yield();
+        //Thread.yield();
     };
 
     /**
@@ -122,7 +123,15 @@ public interface Philosopher extends Runnable {
         do {
             try {
                 // waiting for a seat... if one is available it is directly blocked (removed from table)
-                chairOptional = getTable().getFreeChair(this);
+                chairOptional = getTable().getFreeChairs(this)
+                        .flatMap(chair -> Stream.of(chair.blockIfAvailable()))
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .findAny();
+
+                if(!chairOptional.isPresent()) {
+                    onThreadSleep(DEFAULT_TIME_TO_WAIT_FOR_SITDOWN);
+                }
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -149,7 +158,7 @@ public interface Philosopher extends Runnable {
     default void standUp() {
         releaseForks();
         say("Stand up from seat (" + getChair().get().toString() + ")");
-        getChair().ifPresent(chair -> getTable().addChair(chair));
+        getChair().ifPresent(Chair::unblock);
     }
 
     default Stream<Fork> waitForForks(final Chair chair) {

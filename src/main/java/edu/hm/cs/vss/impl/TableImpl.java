@@ -9,10 +9,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -21,7 +18,6 @@ import java.util.stream.Stream;
  */
 public class TableImpl implements Table {
     private static final TableMaster DEFAULT_TABLE_MASTER = philosopher -> true;
-    private final BlockingQueue<Chair> chairBlockingQueue = new LinkedBlockingQueue<>();
     private final List<Chair> chairs = Collections.synchronizedList(new ArrayList<>());
     private TableMaster tableMaster = DEFAULT_TABLE_MASTER;
 
@@ -36,21 +32,20 @@ public class TableImpl implements Table {
     public void addChairs(int chairCount) {
         IntStream.rangeClosed(1, chairCount)
                 .mapToObj(index -> new Chair.Builder().create())
-                .peek(this::addChair)
-                .collect(Collectors.toCollection(() -> chairs));
+                .forEach(this::addChair);
     }
 
     @Override
     public void addChair(Chair chair) {
-        chairBlockingQueue.add(chair);
+        chairs.add(chair);
     }
 
     @Override
-    public Optional<Chair> getFreeChair(final Philosopher philosopher) throws InterruptedException {
+    public Stream<Chair> getFreeChairs(final Philosopher philosopher) throws InterruptedException {
         if (!getTableMaster().isAllowedToTakeSeat(philosopher)) {
-            return Optional.empty();
+            return Stream.empty();
         }
-        return Optional.ofNullable(chairBlockingQueue.poll(1, TimeUnit.MINUTES));
+        return chairs.parallelStream().filter(Chair::isAvailable);
     }
 
     @Override

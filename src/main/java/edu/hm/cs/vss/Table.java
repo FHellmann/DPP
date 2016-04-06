@@ -2,7 +2,6 @@ package edu.hm.cs.vss;
 
 import edu.hm.cs.vss.impl.TableImpl;
 
-import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
@@ -30,7 +29,7 @@ public interface Table {
      * @return the next free chair or null.
      * @throws InterruptedException
      */
-    Optional<Chair> getFreeChair(final Philosopher philosopher) throws InterruptedException;
+    Stream<Chair> getFreeChairs(final Philosopher philosopher) throws InterruptedException;
 
     /**
      * Get the neighbour chair of another chair. (If there is only one chair, then the same chair will be returned)

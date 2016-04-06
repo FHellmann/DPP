@@ -33,9 +33,9 @@ public class Main {
         } else {
             // Defaults
             runtime = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MINUTES);
-            philosopherCount = 50;
-            chairCount = 10;
-            veryHungry = true;
+            philosopherCount = 5;
+            chairCount = 5;
+            veryHungry = false;
         }
 
         final Table table = new Table.Builder()
