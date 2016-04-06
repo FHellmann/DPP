@@ -3,14 +3,16 @@ package edu.hm.cs.vss.impl;
 import edu.hm.cs.vss.Philosopher;
 import edu.hm.cs.vss.TableMaster;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Created by Fabio on 22.03.2016.
  */
-public class TableMasterMealCount implements TableMaster, Philosopher.OnStandUpListener {
-    private final List<Philosopher> philosopherList = new CopyOnWriteArrayList<>();
+public class TableMasterMealObserver implements TableMaster, Philosopher.OnStandUpListener {
+    private final List<Philosopher> philosopherList = Collections.synchronizedList(new ArrayList<>());
     private volatile int maxMealCount;
 
     @Override
@@ -27,13 +29,13 @@ public class TableMasterMealCount implements TableMaster, Philosopher.OnStandUpL
 
     @Override
     public boolean isAllowedToTakeSeat(Philosopher philosopher) {
-        if(philosopher.getMealCount() <= maxMealCount) {
+        final boolean isAllowedToTakeSeat = philosopher.getMealCount() <= maxMealCount;
+        if(isAllowedToTakeSeat) {
             philosopher.unbanned();
-            return true;
         } else {
             philosopher.banned();
-            return false;
         }
+        return isAllowedToTakeSeat;
     }
 
     @Override

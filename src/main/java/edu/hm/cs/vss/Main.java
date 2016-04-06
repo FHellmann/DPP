@@ -1,7 +1,6 @@
 package edu.hm.cs.vss;
 
-import edu.hm.cs.vss.impl.TableImpl;
-import edu.hm.cs.vss.impl.TableMasterMealCount;
+import edu.hm.cs.vss.impl.TableMasterMealObserver;
 import edu.hm.cs.vss.log.FileLogger;
 import edu.hm.cs.vss.log.Logger;
 import edu.hm.cs.vss.log.merger.LogMerger;
@@ -36,18 +35,15 @@ public class Main {
             runtime = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MINUTES);
             philosopherCount = 50;
             chairCount = 10;
-            veryHungry = false;
+            veryHungry = true;
         }
 
-        final Table table = new TableImpl();
-        table.addChairs(chairCount);
-        table.setTableMaster(new TableMasterMealCount());
+        final Table table = new Table.Builder()
+                .withChairCount(chairCount)
+                .withTableMaster(new TableMasterMealObserver())
+                .create();
 
-        final ExecutorService executorService = Executors.newCachedThreadPool(r -> {
-            Thread t = new Thread(r);
-            t.setDaemon(true);
-            return t;
-        });
+        final ExecutorService executorService = Executors.newCachedThreadPool();
 
         final List<Philosopher> philosopherList = IntStream.rangeClosed(1, philosopherCount)
                 .mapToObj(index -> new Philosopher.Builder()

@@ -20,17 +20,22 @@ import java.util.stream.Stream;
  * Created by Fabio Hellmann on 17.03.2016.
  */
 public class TableImpl implements Table {
-    /**
-     * If the table should be modified during runtime, then this list should be concurrent too.
-     */
+    private static final TableMaster DEFAULT_TABLE_MASTER = philosopher -> true;
     private final BlockingQueue<Chair> chairBlockingQueue = new LinkedBlockingQueue<>();
     private final List<Chair> chairs = Collections.synchronizedList(new ArrayList<>());
-    private TableMaster tableMaster;
+    private TableMaster tableMaster = DEFAULT_TABLE_MASTER;
+
+    public TableImpl(final int chairCount) {
+        if(chairCount < 2) {
+            throw new IllegalArgumentException("The chair count need to be greater or equal then 2");
+        }
+        addChairs(chairCount);
+    }
 
     @Override
     public void addChairs(int chairCount) {
         IntStream.rangeClosed(1, chairCount)
-                .mapToObj(index -> new ChairImpl())
+                .mapToObj(index -> new Chair.Builder().create())
                 .peek(this::addChair)
                 .collect(Collectors.toCollection(() -> chairs));
     }
@@ -41,19 +46,11 @@ public class TableImpl implements Table {
     }
 
     @Override
-    public Optional<Chair> getChair(final Philosopher philosopher) throws InterruptedException {
-        if (getTableMaster().isPresent() && !getTableMaster().get().isAllowedToTakeSeat(philosopher)) {
+    public Optional<Chair> getFreeChair(final Philosopher philosopher) throws InterruptedException {
+        if (!getTableMaster().isAllowedToTakeSeat(philosopher)) {
             return Optional.empty();
         }
         return Optional.ofNullable(chairBlockingQueue.poll(1, TimeUnit.MINUTES));
-    }
-
-    @Override
-    public Stream<Chair> getFreeChairs(final Philosopher philosopher) {
-        if (getTableMaster().isPresent() && !getTableMaster().get().isAllowedToTakeSeat(philosopher)) {
-            return Stream.empty();
-        }
-        return chairs.parallelStream().filter(Chair::isAvailable);
     }
 
     @Override
@@ -67,11 +64,15 @@ public class TableImpl implements Table {
 
     @Override
     public void setTableMaster(TableMaster tableMaster) {
-        this.tableMaster = tableMaster;
+        if(tableMaster == null) {
+            this.tableMaster = DEFAULT_TABLE_MASTER;
+        } else {
+            this.tableMaster = tableMaster;
+        }
     }
 
     @Override
-    public Optional<TableMaster> getTableMaster() {
-        return Optional.ofNullable(tableMaster);
+    public TableMaster getTableMaster() {
+        return tableMaster;
     }
 }

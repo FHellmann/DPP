@@ -7,9 +7,61 @@ import java.util.Optional;
  */
 public interface Fork {
 
+    /**
+     * @return <code>true</code> if the fork is available.
+     */
     boolean isAvailable();
 
+    /**
+     * Blocks this fork immediately if it is available.
+     *
+     * @return the fork or <code>null</code> if the fork wasn't available.
+     */
     Optional<Fork> blockIfAvailable();
 
+    /**
+     * Set the fork available again.
+     */
     void unblock();
+
+    class Builder {
+        private static int count = 1;
+        private String chairName;
+
+        public Builder withChair(final String chairName) {
+            this.chairName = chairName;
+            return this;
+        }
+
+        public Fork create() {
+            return new Fork() {
+                private final String name = "Fork-" + (count++);
+                private boolean block;
+
+                @Override
+                public String toString() {
+                    return name + " from " + chairName;
+                }
+
+                @Override
+                public boolean isAvailable() {
+                    return !block;
+                }
+
+                @Override
+                public synchronized Optional<Fork> blockIfAvailable() {
+                    if (isAvailable()) {
+                        block = true;
+                        return Optional.of(this);
+                    }
+                    return Optional.empty();
+                }
+
+                @Override
+                public synchronized void unblock() {
+                    block = false;
+                }
+            };
+        }
+    }
 }

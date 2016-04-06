@@ -120,8 +120,8 @@ public interface Philosopher extends Runnable {
         Optional<Chair> chairOptional;
         do {
             try {
-                chairOptional = getTable().getChair(this);
-                chairOptional.ifPresent(Chair::blockIfAvailable);
+                // waiting for a seat... if one is available it is directly blocked (removed from table)
+                chairOptional = getTable().getFreeChair(this);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -148,10 +148,7 @@ public interface Philosopher extends Runnable {
     default void standUp() {
         releaseForks();
         say("Stand up from seat (" + getChair().get().toString() + ")");
-        getChair().ifPresent(chair -> {
-            chair.unblock();
-            getTable().addChair(chair);
-        });
+        getChair().ifPresent(chair -> getTable().addChair(chair));
     }
 
     default Stream<Fork> waitForForks(final Chair chair) {
@@ -241,7 +238,7 @@ public interface Philosopher extends Runnable {
     default void run() {
         say("I'm alive!");
 
-        getTable().getTableMaster().ifPresent(tableMaster -> tableMaster.register(this));
+        getTable().getTableMaster().register(this);
 
         try {
             while (!Thread.currentThread().isInterrupted()) {
@@ -272,7 +269,7 @@ public interface Philosopher extends Runnable {
             // just for leaving the while loop
         }
 
-        getTable().getTableMaster().ifPresent(tableMaster -> tableMaster.unregister(this));
+        getTable().getTableMaster().unregister(this);
     }
 
     default void say(final String message) {
