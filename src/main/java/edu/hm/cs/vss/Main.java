@@ -32,7 +32,7 @@ public class Main {
             runtime = TimeUnit.MILLISECONDS.convert(Long.parseLong(args[index++]), TimeUnit.SECONDS);
             philosopherCount = Integer.parseInt(args[index++]);
             chairCount = Integer.parseInt(args[index++]);
-            veryHungry = args[index] != null && args[index].length() > 0;
+            veryHungry = Boolean.parseBoolean(args[index]);
         } else {
             // Defaults
             runtime = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MINUTES);
