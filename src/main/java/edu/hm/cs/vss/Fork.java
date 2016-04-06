@@ -1,6 +1,7 @@
 package edu.hm.cs.vss;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Created by Fabio Hellmann on 17.03.2016.
@@ -36,7 +37,7 @@ public interface Fork {
         public Fork create() {
             return new Fork() {
                 private final String name = "Fork-" + (count++);
-                private boolean block;
+                private final AtomicBoolean block = new AtomicBoolean(false);
 
                 @Override
                 public String toString() {
@@ -45,21 +46,20 @@ public interface Fork {
 
                 @Override
                 public boolean isAvailable() {
-                    return !block;
+                    return !block.get();
                 }
 
                 @Override
-                public synchronized Optional<Fork> blockIfAvailable() {
-                    if (isAvailable()) {
-                        block = true;
+                public Optional<Fork> blockIfAvailable() {
+                    if (block.compareAndSet(false, true)) {
                         return Optional.of(this);
                     }
                     return Optional.empty();
                 }
 
                 @Override
-                public synchronized void unblock() {
-                    block = false;
+                public void unblock() {
+                    block.set(true);
                 }
             };
         }
