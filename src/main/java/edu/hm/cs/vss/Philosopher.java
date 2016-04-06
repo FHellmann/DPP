@@ -26,6 +26,7 @@ public interface Philosopher extends Runnable {
     DeadlockFunction DEADLOCK_FUNCTION = (philosopher, forks) -> {
         forks.parallelStream().forEach(Fork::unblock);
         forks.clear();
+        Thread.yield();
     };
 
     /**
