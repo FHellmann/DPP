@@ -1,6 +1,6 @@
 package edu.hm.cs.vss;
 
-import java.util.Optional;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -20,11 +20,11 @@ public interface Chair {
     boolean isAvailable();
 
     /**
-     * Blocks this chair immediately if it is available.
-     *
-     * @return the chair or <code>null</code> if the chair wasn't available.
+     * @return the count of already waiting philosophers.
      */
-    Optional<Chair> blockIfAvailable();
+    int queuedPhilosopherCount();
+
+    void sitDown(Philosopher phil) throws InterruptedException;
 
     /**
      * Set the chair available again.
@@ -39,6 +39,7 @@ public interface Chair {
                 private final String name = "Chair-" + (count++);
                 private final Fork fork = new Fork.Builder().withChair(name).create();
                 private final AtomicBoolean block = new AtomicBoolean(false);
+                private final Semaphore sema = new Semaphore(255);
 
                 @Override
                 public Fork getFork() {
@@ -51,15 +52,19 @@ public interface Chair {
                 }
 
                 @Override
-                public Optional<Chair> blockIfAvailable() {
-                    if (block.compareAndSet(false, true)) {
-                        return Optional.of(this);
-                    }
-                    return Optional.empty();
+                public int queuedPhilosopherCount() {
+                    return sema.getQueueLength();
+                }
+
+                @Override
+                public void sitDown(Philosopher phil) throws InterruptedException {
+                    sema.acquire();
+                    block.set(true);
                 }
 
                 @Override
                 public void unblock() {
+                    sema.release();
                     block.set(false);
                 }
 

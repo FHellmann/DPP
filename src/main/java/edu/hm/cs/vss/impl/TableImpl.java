@@ -22,7 +22,7 @@ public class TableImpl implements Table {
     private TableMaster tableMaster = DEFAULT_TABLE_MASTER;
 
     public TableImpl(final int chairCount) {
-        if(chairCount < 2) {
+        if (chairCount < 2) {
             throw new IllegalArgumentException("The chair count need to be greater or equal then 2");
         }
         addChairs(chairCount);
@@ -41,14 +41,6 @@ public class TableImpl implements Table {
     }
 
     @Override
-    public Stream<Chair> getFreeChairs(final Philosopher philosopher) throws InterruptedException {
-        if (!getTableMaster().isAllowedToTakeSeat(philosopher)) {
-            return Stream.empty();
-        }
-        return chairs.parallelStream().filter(Chair::isAvailable);
-    }
-
-    @Override
     public Chair getNeighbourChair(final Chair chair) {
         int indexOfChair = chairs.indexOf(chair);
         if (indexOfChair == 0) {
@@ -59,7 +51,7 @@ public class TableImpl implements Table {
 
     @Override
     public void setTableMaster(TableMaster tableMaster) {
-        if(tableMaster == null) {
+        if (tableMaster == null) {
             this.tableMaster = DEFAULT_TABLE_MASTER;
         } else {
             this.tableMaster = tableMaster;
@@ -69,5 +61,13 @@ public class TableImpl implements Table {
     @Override
     public TableMaster getTableMaster() {
         return tableMaster;
+    }
+
+    @Override
+    public Stream<Chair> getChairs(Philosopher philosopher) {
+        if (!getTableMaster().isAllowedToTakeSeat(philosopher)) {
+            return Stream.empty();
+        }
+        return chairs.parallelStream();
     }
 }

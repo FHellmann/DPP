@@ -23,13 +23,11 @@ public interface Table {
     void addChair(final Chair chair);
 
     /**
-     * Get the next free chair or null. If a free chair was found, this chair will be automatically blocked.
-     *
-     * @param philosopher who wants a seat.
-     * @return the next free chair or null.
-     * @throws InterruptedException
+     * Gets a list of chairs, but only if the philosopher is allowed to sit at the table.
+     * @param philosopher The philosopher who wants the chair.
+     * @return A stream of chairs, or an empty one.
      */
-    Stream<Chair> getFreeChairs(final Philosopher philosopher) throws InterruptedException;
+    Stream<Chair> getChairs(Philosopher philosopher);
 
     /**
      * Get the neighbour chair of another chair. (If there is only one chair, then the same chair will be returned)

@@ -122,14 +122,11 @@ public interface Philosopher extends Runnable {
         Optional<Chair> chairOptional;
         do {
             try {
-                // waiting for a seat... if one is available it is directly blocked (removed from table)
-                chairOptional = getTable().getFreeChairs(this)
-                        .flatMap(chair -> Stream.of(chair.blockIfAvailable()))
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
-                        .findAny();
+                // waiting for a seat... stream is empty if we are blocked
+                chairOptional = getTable().getChairs(this)
+                        .min((c1, c2) -> Integer.compare(c1.queuedPhilosopherCount(), c2.queuedPhilosopherCount()));
 
-                if(!chairOptional.isPresent()) {
+                if (!chairOptional.isPresent()) {
                     onThreadSleep(DEFAULT_TIME_TO_WAIT_FOR_SITDOWN);
                 }
             } catch (InterruptedException e) {
@@ -147,6 +144,11 @@ public interface Philosopher extends Runnable {
         } while (!chairOptional.isPresent());
 
         final Chair chair = chairOptional.get();
+        try {
+            chair.sitDown(this);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         say("Found a nice seat (" + chair.toString() + ")");
 
         return chair;
@@ -347,7 +349,7 @@ public interface Philosopher extends Runnable {
 
         public Builder setVeryHungry(final boolean veryHungry) {
             this.veryHungry = veryHungry;
-            if(veryHungry) {
+            if (veryHungry) {
                 this.namePrefix = "Hungry-";
             }
             return this;
