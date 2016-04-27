@@ -121,18 +121,6 @@ public interface Philosopher extends Runnable {
 
         Optional<Chair> chairOptional;
         do {
-            try {
-                // waiting for a seat... stream is empty if we are blocked
-                chairOptional = getTable().getChairs(this)
-                        .min((c1, c2) -> Integer.compare(c1.queuedPhilosopherCount(), c2.queuedPhilosopherCount()));
-
-                if (!chairOptional.isPresent()) {
-                    onThreadSleep(DEFAULT_TIME_TO_WAIT_FOR_SITDOWN);
-                }
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-
             getBannedTime().ifPresent(time -> {
                 say("I'm banned for " + time + " ms :'(");
                 try {
@@ -141,17 +129,32 @@ public interface Philosopher extends Runnable {
                     throw new RuntimeException(e);
                 }
             });
+
+            try {
+                // waiting for a seat... stream is empty if we are blocked
+                chairOptional = getTable()
+                        .getChairs(this)
+                        .min((c1, c2) -> Integer.compare(c1.queuedPhilosopherCount(), c2.queuedPhilosopherCount()));
+
+                if (!chairOptional.isPresent()) {
+                    onThreadSleep(DEFAULT_TIME_TO_WAIT_FOR_SITDOWN);
+                } else {
+                    final Chair chair = chairOptional.get();
+                    try {
+                        chair.sitDown(this);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                    say("Found a nice seat (" + chair.toString() + ")");
+                    return chair;
+
+                }
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
         } while (!chairOptional.isPresent());
-
-        final Chair chair = chairOptional.get();
-        try {
-            chair.sitDown(this);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        say("Found a nice seat (" + chair.toString() + ")");
-
-        return chair;
+        return null;
     }
 
     /**

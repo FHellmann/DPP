@@ -39,7 +39,7 @@ public interface Chair {
                 private final String name = "Chair-" + (count++);
                 private final Fork fork = new Fork.Builder().withChair(name).create();
                 private final AtomicBoolean block = new AtomicBoolean(false);
-                private final Semaphore sema = new Semaphore(255);
+                private final Semaphore sema = new Semaphore(1, true);
 
                 @Override
                 public Fork getFork() {
@@ -53,7 +53,7 @@ public interface Chair {
 
                 @Override
                 public int queuedPhilosopherCount() {
-                    return sema.getQueueLength();
+                    return sema.getQueueLength() + (isAvailable() ? 0 : 1);
                 }
 
                 @Override
@@ -64,8 +64,8 @@ public interface Chair {
 
                 @Override
                 public void unblock() {
-                    sema.release();
                     block.set(false);
+                    sema.release();
                 }
 
                 @Override
